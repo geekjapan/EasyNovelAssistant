@@ -1,13 +1,26 @@
 #!/bin/sh
 set -eu
 
+download_file() {
+    url="$1"
+    output="$2"
+    tmp="$output.tmp"
+    rm -f "$tmp"
+    if curl -fsSL -o "$tmp" "$url"; then
+        mv "$tmp" "$output"
+    else
+        rm -f "$tmp"
+        return 1
+    fi
+}
+
 download_sample() {
     target_dir="$1"
     remote_dir="$2"
     file_name="$3"
     mkdir -p "$target_dir"
     if [ ! -e "$target_dir/$file_name" ]; then
-        curl -fsSLo "$target_dir/$file_name" "https://yyy.wpx.jp/EasyNovelAssistant/sample/$remote_dir/$file_name"
+        download_file "https://yyy.wpx.jp/EasyNovelAssistant/sample/$remote_dir/$file_name" "$target_dir/$file_name"
     fi
 }
 
@@ -15,7 +28,7 @@ download_root_sample() {
     file_name="$1"
     mkdir -p sample
     if [ ! -e "sample/$file_name" ]; then
-        curl -fsSLo "sample/$file_name" "https://yyy.wpx.jp/EasyNovelAssistant/sample/$file_name"
+        download_file "https://yyy.wpx.jp/EasyNovelAssistant/sample/$file_name" "sample/$file_name"
     fi
 }
 

@@ -64,8 +64,8 @@ if [ ! -e "$KOBOLD_BIN" ]; then
 fi
 
 if [ ! -e "Vecteus-v1-IQ4_XS.gguf" ]; then
-    download_file https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1_IQ4_XS.gguf Vecteus-v1-IQ4_XS.gguf || \
-    download_file https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf Vecteus-v1-IQ4_XS.gguf
+    download_file https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf Vecteus-v1-IQ4_XS.gguf || \
+    download_file https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1_IQ4_XS.gguf Vecteus-v1-IQ4_XS.gguf
 fi
 
 cd -
