@@ -1,4 +1,3 @@
-import os
 import platform
 import shutil
 import subprocess
@@ -57,13 +56,13 @@ class PlatformSupport:
         return str(venv_path)
 
     def launch_command(self, args, cwd=None):
+        args = [str(arg) for arg in args]
         if self.is_windows():
-            command_line = subprocess.list2cmdline([str(arg) for arg in args])
-            return subprocess.Popen(["cmd", "/c", "start", "", "cmd", "/c", command_line], cwd=cwd)
-        return subprocess.Popen([str(arg) for arg in args], cwd=cwd)
+            return subprocess.Popen(args, cwd=cwd, creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
+        return subprocess.Popen(args, cwd=cwd)
 
     def run_script_file(self, path, cwd=None):
         path = Path(path)
         if self.is_windows():
-            return subprocess.run(["cmd", "/c", str(path)], cwd=cwd)
+            return subprocess.Popen([str(path)], cwd=cwd, creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
         return subprocess.Popen(["/bin/sh", str(path)], cwd=cwd)
