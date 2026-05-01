@@ -1,6 +1,7 @@
 ﻿import json
 import os
 import subprocess
+import sys
 import time
 
 import numpy as np
@@ -28,6 +29,29 @@ class StyleBertVits2:
         venv_dir = os.path.join(self.style_bert_vits2_dir, "venv")
         return str(self.platform.venv_tool_path(venv_dir, "python"))
 
+    def build_uv_command(self, script_name, args=None):
+        return [
+            "uv",
+            "run",
+            "--python",
+            sys.executable,
+            "--with-requirements",
+            "requirements.txt",
+            "--with",
+            "GPUtil",
+            "--with",
+            "torch",
+            "--with",
+            "torchvision",
+            "--with",
+            "torchaudio",
+            "--index",
+            "https://download.pytorch.org/whl/cu118",
+            "--index-strategy",
+            "unsafe-best-match",
+            script_name,
+        ] + list(args or [])
+
     def install(self):
         if self.platform.is_windows():
             self._run_bat(Path.style_bert_vits2_setup, "Style-Bert-VITS2 インストール")
@@ -43,11 +67,8 @@ class StyleBertVits2:
             args = [] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]
             self.platform.run_script_file(command, args=args)
         else:
-            python = self.get_python_executable()
-            self.platform.launch_command(
-                [python, "server_fastapi.py"] + ([] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]),
-                cwd=self.style_bert_vits2_dir,
-            )
+            args = [] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]
+            self.platform.launch_command(self.build_uv_command("server_fastapi.py", args), cwd=self.style_bert_vits2_dir)
 
     def get_models(self):
         try:
@@ -81,6 +102,9 @@ class StyleBertVits2:
         self.play_queue.cancel_all()
 
     def generate(self, text, force=False):
+        if not self.ctx["speech_enabled"]:
+            return False
+
         max_speech_queue = self.ctx["max_speech_queue"]
 
         if not force:

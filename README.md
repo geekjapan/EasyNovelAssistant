@@ -14,6 +14,8 @@ Fork 元の README は、このセクションの下に残しています。
 - Unix 用セットアップと起動スクリプトを追加・強化しました。
 - モデルメタデータ正規化を追加し、`launch_args`、`generate_args`、`stop_sequence`、`info_url` などの拡張項目に対応しました。
 - Gemma 3 / Qwen3 系 GGUF モデルのプリセットと chat-template 用設定を追加しました。
+- モデルメニューから Hugging Face の GGUF モデル URL または `owner/repo` を追加できるようにしました。
+- 読み上げ機能は初期セットアップ時に導入し、アプリ内の読み上げメニューは ON/OFF のみを扱うようにしました。
 - ダウンロード処理を一時ファイル経由にして、失敗時に壊れたファイルが残りにくいようにしました。
 - pytest ベースの回帰テストを追加しました。
 - `.gitignore` と `.gitattributes` を追加し、生成物と改行・空白検査の扱いを整理しました。
@@ -22,6 +24,9 @@ Fork 元の README は、このセクションの下に残しています。
 
 ### 2026/05/02
 
+- 読み上げメニューを機能 ON/OFF のみに整理し、Style-Bert-VITS2 の導入を初期セットアップへ移しました。
+- Style-Bert-VITS2 のセットアップと起動を `uv run` ベースに変更しました。
+- Hugging Face の GGUF モデルをモデルメニューから追加し、`llm.json` に保存できるようにしました。
 - PR レビュー対応として、Windows の `.bat` / `.cmd` 起動を `cmd /d /c call ... || pause` 経由に変更しました。
 - Style-Bert-VITS2 の Windows 起動を非ブロッキングに戻し、`--cpu` が正しくバッチファイルへ渡るようにしました。
 - KoboldCpp の生成バッチファイル名をサニタイズし、ユーザー定義モデル名に Windows で使えない文字が含まれても壊れにくくしました。
@@ -68,7 +73,7 @@ uv run EasyNovelAssistant\setup\setup_easy_novel_assistant.py
 uv run EasyNovelAssistant\setup\run_easy_novel_assistant.py
 ```
 
-KoboldCpp は `KoboldCpp\koboldcpp.exe` を利用します。Style-Bert-VITS2 のインストールや起動はアプリ内のメニュー、または `EasyNovelAssistant\setup\Setup-Style-Bert-VITS2.bat` / `EasyNovelAssistant\setup\Run-Style-Bert-VITS2.bat` を利用します。
+KoboldCpp は `KoboldCpp\koboldcpp.exe` を利用します。Windows では初回セットアップ時に Style-Bert-VITS2 も導入します。読み上げメニューは機能の ON/OFF のみを扱い、詳細な音声生成・学習ツールはツールメニューまたは `EasyNovelAssistant\setup\Run-Style-Bert-VITS2.bat` から起動します。
 
 ### Linux x64
 

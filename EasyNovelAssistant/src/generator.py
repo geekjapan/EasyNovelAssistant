@@ -102,6 +102,8 @@ class Generator:
         self.gen_queue.update()
 
     def _auto_speech(self, text):
+        if not self.ctx["speech_enabled"]:
+            return
         if text == "":
             return
         if "「" in text:

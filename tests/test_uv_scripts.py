@@ -14,6 +14,9 @@ APP_SCRIPTS = [
     ROOT / "EasyNovelAssistant" / "setup" / "Install-EasyNovelAssistant.sh",
     ROOT / "Run-EasyNovelAssistant.bat",
     ROOT / "Run-EasyNovelAssistant.sh",
+    ROOT / "EasyNovelAssistant" / "setup" / "Setup-Style-Bert-VITS2.bat",
+    ROOT / "EasyNovelAssistant" / "setup" / "Run-Style-Bert-VITS2.bat",
+    ROOT / "EasyNovelAssistant" / "setup" / "res" / "Server_cpu.bat",
 ]
 
 
@@ -22,12 +25,24 @@ def read_text(path):
 
 
 def test_app_scripts_do_not_create_or_activate_virtualenvs():
-    forbidden = ["-m venv", "-m virtualenv", "Scripts\\activate.bat", "venv/bin/activate"]
+    forbidden = ["-m venv", "-m virtualenv", "Scripts\\activate.bat", "venv\\Scripts", "venv/bin/activate"]
 
     for script in APP_SCRIPTS:
         text = read_text(script)
         for marker in forbidden:
             assert marker not in text, f"{script.relative_to(ROOT)} still contains {marker}"
+
+
+def test_style_bert_scripts_run_python_through_uv():
+    setup_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "Setup-Style-Bert-VITS2.bat")
+    run_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "Run-Style-Bert-VITS2.bat")
+    server_cpu_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "res" / "Server_cpu.bat")
+
+    assert '"%UV_CMD%" run --python "%PYTHON_CMD%" %STYLE_BERT_UV_DEPS% initialize.py' in setup_text
+    assert '"%UV_CMD%" run --python "%PYTHON_CMD%" %STYLE_BERT_UV_DEPS% server_fastapi.py %*' in run_text
+    assert '"%UV_CMD%" run --python "%PYTHON_CMD%" %STYLE_BERT_UV_DEPS% server_fastapi.py --cpu' in server_cpu_text
+    assert "pip install" not in setup_text
+    assert "python server_fastapi.py" not in run_text
 
 
 def test_unix_scripts_run_app_through_uv_requirements():
@@ -96,6 +111,24 @@ def test_setup_python_script_selects_supported_kobold_binaries():
     assert module.select_kobold_binary("Windows", "AMD64") == "koboldcpp.exe"
     assert module.select_kobold_binary("Linux", "x86_64") == "koboldcpp-linux-x64"
     assert module.select_kobold_binary("Darwin", "arm64") == "koboldcpp-mac-arm64"
+
+
+def test_setup_python_script_runs_speech_setup_during_initial_setup(monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_speech", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    calls = []
+
+    monkeypatch.setattr(module, "ensure_app_dependencies", lambda: calls.append("deps"))
+    monkeypatch.setattr(module, "ensure_kobold_cpp", lambda: calls.append("kobold") or Path("kobold"))
+    monkeypatch.setattr(module, "ensure_default_model", lambda: calls.append("model") or Path("model"))
+    monkeypatch.setattr(module, "ensure_speech_engine", lambda: calls.append("speech") or None)
+    monkeypatch.setattr(module.os, "chdir", lambda _path: None)
+
+    module.main()
+
+    assert calls == ["deps", "kobold", "model", "speech"]
 
 
 def test_run_python_script_builds_sample_urls_without_empty_path_segments():

@@ -76,17 +76,17 @@ class InputTab:
         self.text_area.configure(colors)
 
     def _on_middle_click(self, e):
-        if self.ctx["middle_click_speech"]:
+        if self.ctx["speech_enabled"] and self.ctx["middle_click_speech"]:
             self._speech(e)
         return "break"
 
     def _on_ctx_menu(self, e):
         self.ctx_menu.delete(0, tk.END)
 
-        if self.ctx.style_bert_vits2.models is None:
+        if self.ctx["speech_enabled"] and self.ctx.style_bert_vits2.models is None:
             self.ctx.style_bert_vits2.get_models()
 
-        if self.ctx.style_bert_vits2.models is not None:
+        if self.ctx["speech_enabled"] and self.ctx.style_bert_vits2.models is not None:
             self.ctx_menu.add_command(label="読み上げる", command=lambda: self._speech(e))
             self.ctx_menu.add_separator()
 

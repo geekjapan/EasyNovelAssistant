@@ -1,4 +1,5 @@
 from unittest.mock import Mock
+import sys
 
 import style_bert_vits2
 from path import Path as AppPath
@@ -13,6 +14,7 @@ class DummyContext(dict):
             style_bert_vits2_port=5000,
             style_bert_vits2_gpu=False,
             style_bert_vits2_command_timeout=0.05,
+            speech_enabled=True,
             max_speech_queue=3,
             speech_volume=80,
             speech_speed=1.2,
@@ -53,10 +55,12 @@ def test_launch_server_on_unix_uses_platform_launch_command_with_cpu_arg(tmp_pat
 
     style.launch_server()
 
-    support.launch_command.assert_called_once_with(
-        [str(style_dir / "venv" / "bin" / "python"), "server_fastapi.py", "--cpu"],
-        cwd=str(style_dir),
-    )
+    command = support.launch_command.call_args.args[0]
+    assert command[:4] == ["uv", "run", "--python", sys.executable]
+    assert command[-2:] == ["server_fastapi.py", "--cpu"]
+    assert "--with-requirements" in command
+    support.launch_command.assert_called_once()
+    assert support.launch_command.call_args.kwargs == {"cwd": str(style_dir)}
 
 
 def test_launch_server_on_windows_runs_script_nonblocking_with_cpu_arg(tmp_path):
@@ -93,3 +97,15 @@ def test_play_uses_ffplay_subprocess(monkeypatch):
         stdout=style_bert_vits2.subprocess.DEVNULL,
     )
     popen.return_value.wait.assert_called_once_with()
+
+
+def test_generate_returns_false_without_queueing_when_speech_is_disabled():
+    ctx = DummyContext()
+    ctx["speech_enabled"] = False
+    style = StyleBertVits2(ctx)
+    style.gen_queue.push = Mock()
+
+    result = style.generate("読み上げない")
+
+    assert result is False
+    style.gen_queue.push.assert_not_called()

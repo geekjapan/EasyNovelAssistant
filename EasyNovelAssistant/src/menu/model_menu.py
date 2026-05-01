@@ -1,7 +1,16 @@
 ﻿import os
 import tkinter as tk
-from tkinter import simpledialog
+from tkinter import messagebox, simpledialog
 
+from huggingface_models import (
+    build_custom_llm_name,
+    build_gguf_llm_entry,
+    fetch_hf_model_payload,
+    gguf_siblings_from_api_payload,
+    parse_hf_gguf_reference,
+    save_custom_llm_entry,
+)
+from model_metadata import normalize_llm_entry
 from path import Path
 
 
@@ -46,6 +55,8 @@ class ModelMenu:
                 command=lambda v=llm_context_size, _=check_var: set_llm_context_size(v),
             )
 
+        self.menu.add_separator()
+        self.menu.add_command(label="Hugging Face GGUFモデルを追加...", command=self.add_huggingface_model)
         self.menu.add_separator()
 
         categories = {}
@@ -96,4 +107,51 @@ class ModelMenu:
         result = self.ctx.kobold_cpp.launch_server()
         if result is not None:
             print(result)
-            simpledialog.messagebox.showerror("エラー", result, parent=self.form.win)
+            messagebox.showerror("エラー", result, parent=self.form.win)
+
+    def add_huggingface_model(self):
+        value = simpledialog.askstring(
+            "Hugging Face GGUFモデルを追加",
+            "Hugging Face の owner/repo または .gguf ファイルURLを入力してください。",
+            parent=self.form.win,
+        )
+        if not value:
+            return
+
+        try:
+            ref = parse_hf_gguf_reference(value)
+            file_path = ref.file_path
+            if file_path is None:
+                payload = fetch_hf_model_payload(ref.repo_id)
+                files = gguf_siblings_from_api_payload(payload)
+                if not files:
+                    raise ValueError(f"{ref.repo_id} にGGUFファイルが見つかりませんでした。")
+                file_path = self._ask_gguf_file(ref.repo_id, files)
+                if not file_path:
+                    return
+
+            llm_name = build_custom_llm_name(ref.repo_id, file_path)
+            entry = build_gguf_llm_entry(ref.repo_id, file_path, ref.revision)
+            normalize_llm_entry(llm_name, entry)
+            save_custom_llm_entry(Path.llm, llm_name, entry)
+            self.ctx.llm[llm_name] = entry
+            messagebox.showinfo(
+                "Hugging Face GGUFモデルを追加",
+                f"{llm_name} を追加しました。\nモデルメニューからダウンロードして選択できます。",
+                parent=self.form.win,
+            )
+        except Exception as error:
+            messagebox.showerror("Hugging Face GGUFモデルを追加", str(error), parent=self.form.win)
+
+    def _ask_gguf_file(self, repo_id, files):
+        if len(files) == 1:
+            return files[0]
+        choices = "\n".join(files[:20])
+        if len(files) > 20:
+            choices += f"\n...他 {len(files) - 20} 件"
+        return simpledialog.askstring(
+            "GGUFファイルを選択",
+            f"{repo_id} のGGUFファイル名を入力してください。\n\n{choices}",
+            initialvalue=files[0],
+            parent=self.form.win,
+        )

@@ -1,5 +1,6 @@
 ﻿import os
 import shlex
+import sys
 import tkinter as tk
 import webbrowser
 
@@ -101,5 +102,24 @@ class ToolMenu:
         if self.platform.is_windows():
             self.platform.run_script_file(bat, cwd=Path.style_bert_vits2)
         else:
-            python = self.platform.resolve_tool(os.path.join(Path.style_bert_vits2, "venv"), "python")
-            self.platform.launch_command([python] + shlex.split(py), cwd=Path.style_bert_vits2)
+            command = [
+                "uv",
+                "run",
+                "--python",
+                sys.executable,
+                "--with-requirements",
+                "requirements.txt",
+                "--with",
+                "GPUtil",
+                "--with",
+                "torch",
+                "--with",
+                "torchvision",
+                "--with",
+                "torchaudio",
+                "--index",
+                "https://download.pytorch.org/whl/cu118",
+                "--index-strategy",
+                "unsafe-best-match",
+            ] + shlex.split(py)
+            self.platform.launch_command(command, cwd=Path.style_bert_vits2)

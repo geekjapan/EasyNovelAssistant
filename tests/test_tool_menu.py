@@ -59,14 +59,14 @@ def test_windows_run_style_bert_vits2_uses_platform_script_launcher(monkeypatch)
 def test_unix_run_style_bert_vits2_uses_resolved_python_and_split_args(monkeypatch):
     platform = Mock()
     platform.is_windows.return_value = False
-    platform.resolve_tool.return_value = "/style-bert/venv/bin/python"
     menu = make_tool_menu(platform)
     monkeypatch.setattr(tool_menu.Path, "style_bert_vits2", "/style-bert")
 
     menu._run_style_bert_vits2("/style-bert/editor.bat", "server_editor.py --inbrowser")
 
-    platform.resolve_tool.assert_called_once_with("/style-bert/venv", "python")
-    platform.launch_command.assert_called_once_with(
-        ["/style-bert/venv/bin/python", "server_editor.py", "--inbrowser"],
-        cwd="/style-bert",
-    )
+    command = platform.launch_command.call_args.args[0]
+    assert command[:4] == ["uv", "run", "--python", sys.executable]
+    assert command[-2:] == ["server_editor.py", "--inbrowser"]
+    assert "--with-requirements" in command
+    platform.launch_command.assert_called_once()
+    assert platform.launch_command.call_args.kwargs == {"cwd": "/style-bert"}
