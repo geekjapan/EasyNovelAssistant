@@ -15,7 +15,7 @@ class KoboldCpp:
     BAT_TEMPLATE = r"""@echo off
 chcp 65001 > NUL
 pushd %~dp0
-set CURL_CMD=C:\Windows\System32\curl.exe -k
+set "CURL_CMD=C:\Windows\System32\curl.exe"
 
 @REM 7B: 33, 35B: 41, 70B: 65
 set GPU_LAYERS=0
@@ -29,9 +29,19 @@ if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
 popd
 """
 
-    CURL_TEMPLATE = """if not exist {file_name} (
-    start "" {info_url}
-    %CURL_CMD% -LO {url}
+    CURL_TEMPLATE = """if not exist "{file_name}" (
+    start "" "{info_url}"
+    if exist "{temp_file_name}" del /f /q "{temp_file_name}"
+    "%CURL_CMD%" -k -L -f -o "{temp_file_name}" "{url}"
+    if errorlevel 1 (
+        if exist "{temp_file_name}" del /f /q "{temp_file_name}"
+        pause & popd & exit /b 1
+    )
+    move /y "{temp_file_name}" "{file_name}"
+    if errorlevel 1 (
+        if exist "{temp_file_name}" del /f /q "{temp_file_name}"
+        pause & popd & exit /b 1
+    )
 )
 """
 
@@ -55,7 +65,13 @@ popd
 
             curl_cmd = ""
             for url in llm["urls"]:
-                curl_cmd += self.CURL_TEMPLATE.format(url=url, file_name=url.split("/")[-1], info_url=llm["info_url"])
+                file_name = url.split("/")[-1]
+                curl_cmd += self.CURL_TEMPLATE.format(
+                    url=url,
+                    file_name=file_name,
+                    temp_file_name=f"{file_name}.tmp",
+                    info_url=llm["info_url"],
+                )
             bat_text = self.BAT_TEMPLATE.format(
                 curl_cmd=curl_cmd,
                 option=ctx["koboldcpp_arg"],

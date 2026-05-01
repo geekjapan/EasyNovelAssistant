@@ -182,6 +182,33 @@ def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):
     assert '"modern.gguf"' in bat_text
 
 
+def test_init_writes_bat_with_failure_safe_model_download(tmp_path):
+    kobold_dir = tmp_path / "KoboldCpp"
+    ctx = DummyContext(tmp_path)
+    ctx.llm["Modern"]["info_url"] = "https://example.test/model info"
+    ctx.llm["Modern"]["urls"] = [
+        "https://example.test/models/modern.gguf",
+        "https://example.test/models/modern-mmproj.gguf",
+    ]
+
+    KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    bat_text = (kobold_dir / "Run-Modern-C8K-L0.bat").read_text(encoding="utf-8")
+    assert 'set "CURL_CMD=C:\\Windows\\System32\\curl.exe"' in bat_text
+    assert " -O" not in bat_text
+    assert 'if not exist "modern.gguf" (' in bat_text
+    assert 'if not exist "modern-mmproj.gguf" (' in bat_text
+    assert 'start "" "https://example.test/models"' in bat_text
+    assert '"%CURL_CMD%" -k -L -f -o "modern.gguf.tmp" "https://example.test/models/modern.gguf"' in bat_text
+    assert 'move /y "modern.gguf.tmp" "modern.gguf"' in bat_text
+    assert 'if exist "modern.gguf.tmp" del /f /q "modern.gguf.tmp"' in bat_text
+    assert "pause & popd & exit /b 1" in bat_text
+
+
 def test_launch_server_launches_built_command_with_kobold_dir(tmp_path, monkeypatch):
     kobold_dir = tmp_path / "KoboldCpp"
     kobold_dir.mkdir()
