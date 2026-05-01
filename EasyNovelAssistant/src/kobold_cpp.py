@@ -61,7 +61,8 @@ popd
 
         for llm_name, llm in ctx.llm.items():
             context_size = min(llm["context_size"], ctx["llm_context_size"])
-            bat_file = os.path.join(self.kobold_cpp_dir, f'Run-{llm["name"]}-C{context_size // 1024}K-L0.bat')
+            safe_name = Path.get_path_name(llm["name"])
+            bat_file = os.path.join(self.kobold_cpp_dir, f"Run-{safe_name}-C{context_size // 1024}K-L0.bat")
 
             curl_cmd = ""
             for url in llm["urls"]:

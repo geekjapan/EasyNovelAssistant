@@ -17,6 +17,12 @@ def _has_windows_cmd_metacharacters(value):
     return any(character in str(value) for character in WINDOWS_UNSAFE_SCRIPT_PATH_CHARACTERS)
 
 
+def _windows_command_part(value):
+    if _has_windows_cmd_metacharacters(value):
+        raise ValueError("Windows script arguments must not contain cmd metacharacters")
+    return subprocess.list2cmdline([str(value)])
+
+
 @dataclass(frozen=True)
 class PlatformInfo:
     system: str
@@ -74,10 +80,17 @@ class PlatformSupport:
             return subprocess.Popen(args, cwd=cwd, creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
         return subprocess.Popen(args, cwd=cwd)
 
-    def run_script_file(self, path, cwd=None):
+    def run_script_file(self, path, cwd=None, args=None):
         path = Path(path)
+        args = [str(arg) for arg in (args or [])]
         if self.is_windows():
             if _has_windows_cmd_metacharacters(path):
                 raise ValueError("Windows script paths must not contain cmd metacharacters")
-            return subprocess.Popen([str(path)], cwd=cwd, creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
-        return subprocess.Popen(["/bin/sh", str(path)], cwd=cwd)
+            command = " ".join(["call", _windows_command_part(path)] + [_windows_command_part(arg) for arg in args])
+            command = f"{command} || pause"
+            return subprocess.Popen(
+                ["cmd", "/d", "/c", command],
+                cwd=cwd,
+                creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+            )
+        return subprocess.Popen(["/bin/sh", str(path)] + args, cwd=cwd)

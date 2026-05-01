@@ -128,6 +128,27 @@ def test_prepare_unix_escapes_subtitle_path_for_ffmpeg_filtergraph(tmp_path, mon
     assert "subtitles='001-Bob\\'s line.srt'" in vf_arg
 
 
+def test_prepare_unix_filter_chains_are_single_shell_arguments(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    audio = tmp_path / "001-Bob's line.wav"
+    image = tmp_path / "image.png"
+    audio.write_bytes(b"")
+    image.write_bytes(b"")
+    maker = MovieMaker(DummyContext(), platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")))
+
+    script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
+
+    script_text = Path(script_path).read_text(encoding="utf-8")
+    ffmpeg_line = next(line for line in script_text.splitlines() if " -vf " in line)
+    ffmpeg_args = shlex.split(ffmpeg_line)
+    vf_arg = ffmpeg_args[ffmpeg_args.index("-vf") + 1]
+    af_arg = ffmpeg_args[ffmpeg_args.index("-af") + 1]
+    assert ", " in vf_arg
+    assert vf_arg.startswith("scale='if(gt(a,1),1200,-2)'")
+    assert "subtitles='001-Bob\\'s line.srt'" in vf_arg
+    assert af_arg == "atempo=1.0"
+
+
 def test_make_runs_generated_script_with_script_directory(tmp_path):
     script_path = tmp_path / "movie assets" / "out.sh"
     platform = Mock()

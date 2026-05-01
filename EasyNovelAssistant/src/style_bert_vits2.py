@@ -1,6 +1,5 @@
 ﻿import json
 import os
-import subprocess
 import time
 
 import numpy as np
@@ -40,10 +39,8 @@ class StyleBertVits2:
 
     def _run_bat(self, command, title):
         if self.platform.is_windows():
-            command_args = ["cmd", "/d", "/c", "start", "", "cmd", "/d", "/c", str(command)]
-            if not self.ctx["style_bert_vits2_gpu"]:
-                command_args.append("--cpu")
-            subprocess.run(command_args)
+            args = [] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]
+            self.platform.run_script_file(command, args=args)
         else:
             python = self.get_python_executable()
             self.platform.launch_command(

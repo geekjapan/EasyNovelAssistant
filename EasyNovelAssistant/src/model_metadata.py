@@ -22,7 +22,8 @@ def normalize_llm_entry(llm_name, llm):
     llm["name"] = display_name_from_llm_name(llm_name)
     llm["file_names"] = [url.split("/")[-1] for url in urls]
     llm["file_name"] = llm["file_names"][0]
-    llm["info_url"] = info_url_from_model_url(urls[0])
+    if not llm.get("info_url"):
+        llm["info_url"] = info_url_from_model_url(urls[0])
     llm.setdefault("launch_args", [])
     llm.setdefault("generate_args", {})
     llm.setdefault("default_params", {})

@@ -39,3 +39,16 @@ def test_normalize_llm_map_keeps_optional_modern_fields():
     assert llms["Modern"]["launch_args"] == ["--jinja"]
     assert llms["Modern"]["generate_args"] == {"reasoning_effort": "low"}
     assert llms["Modern"]["stop_sequence"] == ["<|im_end|>"]
+
+
+def test_normalize_llm_entry_preserves_explicit_info_url():
+    llm = {
+        "urls": ["https://huggingface.co/example/repo/resolve/main/model.gguf"],
+        "context_size": 32768,
+        "max_gpu_layer": 33,
+        "info_url": "https://example.com/custom-model-info",
+    }
+
+    normalize_llm_entry("Category/Example Model", llm)
+
+    assert llm["info_url"] == "https://example.com/custom-model-info"

@@ -1,6 +1,5 @@
 from unittest.mock import Mock
 
-import style_bert_vits2
 from path import Path as AppPath
 from platform_support import PlatformInfo, PlatformSupport
 from style_bert_vits2 import StyleBertVits2
@@ -57,31 +56,12 @@ def test_launch_server_on_unix_uses_platform_launch_command_with_cpu_arg(tmp_pat
     )
 
 
-def test_launch_server_on_windows_runs_cmd_without_shell_and_separate_cpu_arg(tmp_path, monkeypatch):
+def test_launch_server_on_windows_runs_script_nonblocking_with_cpu_arg(tmp_path):
     style_dir = tmp_path / "Style-Bert-VITS2"
     support = PlatformSupport(PlatformInfo("win32", "AMD64"))
-    run = Mock()
-    monkeypatch.setattr(style_bert_vits2.subprocess, "run", run)
+    support.run_script_file = Mock()
     style = StyleBertVits2(DummyContext(), platform_support=support, style_bert_vits2_dir=style_dir)
 
     style.launch_server()
 
-    run.assert_called_once()
-    args, kwargs = run.call_args
-    command = args[0]
-    assert kwargs.get("shell") is not True
-    assert command == [
-        "cmd",
-        "/d",
-        "/c",
-        "start",
-        "",
-        "cmd",
-        "/d",
-        "/c",
-        str(AppPath.style_bert_vits2_run),
-        "--cpu",
-    ]
-    assert "--cpu" in command
-    assert f"{AppPath.style_bert_vits2_run} --cpu" not in command
-    assert all("|| pause" not in item for item in command)
+    support.run_script_file.assert_called_once_with(str(AppPath.style_bert_vits2_run), args=["--cpu"])

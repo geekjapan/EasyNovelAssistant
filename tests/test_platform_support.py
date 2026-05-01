@@ -115,7 +115,11 @@ def test_windows_run_script_file_returns_popen(monkeypatch, tmp_path):
     result = support.run_script_file(script, cwd=tmp_path)
 
     assert result == "process"
-    popen.assert_called_once_with([str(script)], cwd=tmp_path, creationflags=16)
+    popen.assert_called_once_with(
+        ["cmd", "/d", "/c", f"call {platform_support.subprocess.list2cmdline([str(script)])} || pause"],
+        cwd=tmp_path,
+        creationflags=16,
+    )
 
 
 def test_windows_run_script_file_accepts_parentheses_in_path(monkeypatch):
@@ -128,7 +132,28 @@ def test_windows_run_script_file_accepts_parentheses_in_path(monkeypatch):
     result = support.run_script_file(script)
 
     assert result == "process"
-    popen.assert_called_once_with([script], cwd=None, creationflags=16)
+    popen.assert_called_once_with(
+        ["cmd", "/d", "/c", f"call {platform_support.subprocess.list2cmdline([script])} || pause"],
+        cwd=None,
+        creationflags=16,
+    )
+
+
+def test_windows_run_script_file_passes_args_to_inner_batch(monkeypatch, tmp_path):
+    support = PlatformSupport(PlatformInfo("win32", "AMD64"))
+    script = tmp_path / "run server.bat"
+    popen = Mock(return_value="process")
+    monkeypatch.setattr(platform_support.subprocess, "CREATE_NEW_CONSOLE", 16, raising=False)
+    monkeypatch.setattr(platform_support.subprocess, "Popen", popen)
+
+    result = support.run_script_file(script, args=["--cpu"], cwd=tmp_path)
+
+    assert result == "process"
+    popen.assert_called_once_with(
+        ["cmd", "/d", "/c", f"call {platform_support.subprocess.list2cmdline([str(script)])} --cpu || pause"],
+        cwd=tmp_path,
+        creationflags=16,
+    )
 
 
 @pytest.mark.parametrize("character", ["&", "|", "<", ">", "^"])

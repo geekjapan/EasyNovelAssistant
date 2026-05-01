@@ -182,6 +182,26 @@ def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):
     assert '"modern.gguf"' in bat_text
 
 
+def test_init_sanitizes_generated_bat_file_name(tmp_path):
+    kobold_dir = tmp_path / "KoboldCpp"
+    ctx = DummyContext(tmp_path)
+    ctx.llm = {
+        "Custom/Bad:Model": {
+            "urls": ["https://huggingface.co/example/bad/resolve/main/bad.gguf"],
+            "context_size": 32768,
+            "max_gpu_layer": 99,
+        }
+    }
+
+    KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    assert (kobold_dir / "Run-Bad_Model-C8K-L0.bat").exists()
+
+
 def test_init_writes_bat_with_failure_safe_model_download(tmp_path):
     kobold_dir = tmp_path / "KoboldCpp"
     ctx = DummyContext(tmp_path)
@@ -202,7 +222,7 @@ def test_init_writes_bat_with_failure_safe_model_download(tmp_path):
     assert " -O" not in bat_text
     assert 'if not exist "modern.gguf" (' in bat_text
     assert 'if not exist "modern-mmproj.gguf" (' in bat_text
-    assert 'start "" "https://example.test/models"' in bat_text
+    assert 'start "" "https://example.test/model info"' in bat_text
     assert '"%CURL_CMD%" -k -L -f -o "modern.gguf.tmp" "https://example.test/models/modern.gguf"' in bat_text
     assert 'move /y "modern.gguf.tmp" "modern.gguf"' in bat_text
     assert 'if exist "modern.gguf.tmp" del /f /q "modern.gguf.tmp"' in bat_text
