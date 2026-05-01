@@ -99,6 +99,20 @@ def test_play_uses_ffplay_subprocess(monkeypatch):
     popen.return_value.wait.assert_called_once_with()
 
 
+def test_play_prefers_bundled_ffplay_when_available(tmp_path, monkeypatch):
+    ffplay = tmp_path / "setup" / "lib" / "ffmpeg" / "bin" / "ffplay.exe"
+    ffplay.parent.mkdir(parents=True)
+    ffplay.write_text("", encoding="utf-8")
+    popen = Mock(return_value=Mock(wait=Mock()))
+    monkeypatch.setattr(style_bert_vits2.Path, "ffplay", str(ffplay))
+    monkeypatch.setattr(style_bert_vits2.subprocess, "Popen", popen)
+    style = StyleBertVits2(DummyContext())
+
+    style._play("/tmp/voice.wav")
+
+    assert popen.call_args.args[0][0] == str(ffplay)
+
+
 def test_generate_returns_false_without_queueing_when_speech_is_disabled():
     ctx = DummyContext()
     ctx["speech_enabled"] = False

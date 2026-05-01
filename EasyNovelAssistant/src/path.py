@@ -47,11 +47,9 @@ class Path:
 
     movie = os.path.join(cwd, "movie")
     os.makedirs(movie, exist_ok=True)
-    venv = os.path.join(cwd, "venv")
-    scripts = os.path.join(venv, "Scripts")
-    bin = os.path.join(venv, "bin")
-    ffmpeg = os.path.join(scripts, "ffmpeg.exe")
-    ffplay = os.path.join(scripts, "ffplay.exe")
+    ffmpeg_bundle_bin = os.path.join(setup, "lib", "ffmpeg-master-latest-win64-gpl", "bin")
+    ffmpeg = os.path.join(ffmpeg_bundle_bin, "ffmpeg.exe")
+    ffplay = os.path.join(ffmpeg_bundle_bin, "ffplay.exe")
 
     @classmethod
     def init(cls, ctx):

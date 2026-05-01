@@ -45,6 +45,12 @@ def test_style_bert_scripts_run_python_through_uv():
     assert "python server_fastapi.py" not in run_text
 
 
+def test_path_points_ffplay_at_downloaded_ffmpeg_bundle():
+    from path import Path as AppPath
+
+    assert AppPath.ffplay.endswith("EasyNovelAssistant/setup/lib/ffmpeg-master-latest-win64-gpl/bin/ffplay.exe")
+
+
 def test_unix_scripts_run_app_through_uv_requirements():
     setup_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "Setup-EasyNovelAssistant.sh")
     run_text = read_text(ROOT / "Run-EasyNovelAssistant.sh")

@@ -235,8 +235,8 @@ popd
 
     def _prepare_unix(self, audio_image_sets, movie_path, assets_dir):
         movie_name = os.path.basename(movie_path).split(".")[0]
-        ffmpeg = self.platform.resolve_tool(Path.venv, "ffmpeg")
-        ffplay = self.platform.resolve_tool(Path.venv, "ffplay")
+        ffmpeg = Path.ffmpeg if os.path.exists(Path.ffmpeg) else self.platform.resolve_tool("", "ffmpeg")
+        ffplay = Path.ffplay if os.path.exists(Path.ffplay) else self.platform.resolve_tool("", "ffplay")
         quote = shlex.quote
         lines = ["#!/bin/sh", "set -eu", ""]
         subtitle_template = "1\n00:00:00,000 --> 90:00:00,000\n{serif}\n"

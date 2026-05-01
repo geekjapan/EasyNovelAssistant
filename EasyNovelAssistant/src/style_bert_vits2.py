@@ -1,5 +1,6 @@
 ﻿import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -101,6 +102,11 @@ class StyleBertVits2:
         self.gen_queue.cancel_all()
         self.play_queue.cancel_all()
 
+    def get_ffplay_executable(self):
+        if os.path.exists(Path.ffplay):
+            return Path.ffplay
+        return shutil.which("ffplay") or "ffplay"
+
     def generate(self, text, force=False):
         if not self.ctx["speech_enabled"]:
             return False
@@ -173,7 +179,7 @@ class StyleBertVits2:
     def _play(self, wav_path):
         subprocess.Popen(
             [
-                "ffplay",
+                self.get_ffplay_executable(),
                 "-volume",
                 f'{self.ctx["speech_volume"]}',
                 "-af",
