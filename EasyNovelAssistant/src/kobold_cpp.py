@@ -1,15 +1,17 @@
 ﻿import json
 import os
+import shlex
 import subprocess
 import webbrowser
-from sys import platform
 
 import requests
+from model_metadata import normalize_llm_map
 from path import Path
+from platform_support import PlatformSupport
 
 
 class KoboldCpp:
-    BAT_TEMPLATE = """@echo off
+    BAT_TEMPLATE = r"""@echo off
 chcp 65001 > NUL
 pushd %~dp0
 set CURL_CMD=C:\Windows\System32\curl.exe -k
@@ -21,7 +23,7 @@ set GPU_LAYERS=0
 set CONTEXT_SIZE={context_size}
 
 {curl_cmd}
-koboldcpp.exe --gpulayers %GPU_LAYERS% {option} --contextsize %CONTEXT_SIZE% {file_name}
+koboldcpp.exe --gpulayers %GPU_LAYERS% {option} --contextsize %CONTEXT_SIZE% {launch_args} {file_name}
 if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
 popd
 """
@@ -32,8 +34,13 @@ popd
 )
 """
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, platform_support=None):
         self.ctx = ctx
+        self.platform = platform_support or PlatformSupport()
+        Path.kobold_cpp = os.path.join(os.getcwd(), "KoboldCpp")
+        Path.kobold_cpp_win = os.path.join(Path.kobold_cpp, "koboldcpp.exe")
+        Path.kobold_cpp_linux = os.path.join(Path.kobold_cpp, "koboldcpp-linux-x64")
+        Path.kobold_cpp_mac_arm64 = os.path.join(Path.kobold_cpp, "koboldcpp-mac-arm64")
         self.base_url = f'http://{ctx["koboldcpp_host"]}:{ctx["koboldcpp_port"]}'
         self.model_url = f"{self.base_url}/api/v1/model"
         self.generate_url = f"{self.base_url}/api/v1/generate"
@@ -41,23 +48,9 @@ popd
         self.abort_url = f"{self.base_url}/api/extra/abort"
 
         self.model_name = None
+        normalize_llm_map(ctx.llm)
 
-        for llm_name in ctx.llm:
-            llm = ctx.llm[llm_name]
-            name = llm_name
-            if "/" in llm_name:
-                _, name = llm_name.split("/")
-            if " " in name:
-                name = name.split(" ")[-1]
-            llm["name"] = name
-
-            llm["file_names"] = []
-            for url in llm["urls"]:
-                llm["file_names"].append(url.split("/")[-1])
-            llm["file_name"] = llm["file_names"][0]
-            # urls[0]の "/resolve/main/" より前を取得
-            llm["info_url"] = llm["urls"][0].split("/resolve/main/")[0]
-
+        for llm_name, llm in ctx.llm.items():
             context_size = min(llm["context_size"], ctx["llm_context_size"])
             bat_file = os.path.join(Path.kobold_cpp, f'Run-{llm["name"]}-C{context_size // 1024}K-L0.bat')
 
@@ -67,9 +60,11 @@ popd
             bat_text = self.BAT_TEMPLATE.format(
                 curl_cmd=curl_cmd,
                 option=ctx["koboldcpp_arg"],
+                launch_args=" ".join(llm.get("launch_args", [])),
                 context_size=context_size,
                 file_name=llm["file_name"],
             )
+            os.makedirs(Path.kobold_cpp, exist_ok=True)
             with open(bat_file, "w", encoding="utf-8") as f:
                 f.write(bat_text)
 
@@ -109,6 +104,60 @@ popd
                 return f"{llm_name} のダウンロードに失敗しました。\n{curl_cmd}"
         return None
 
+    def get_kobold_cpp_executable(self):
+        return str(self.platform.kobold_cpp_path(Path.kobold_cpp))
+
+    def build_launch_args(self, llm_name, gpu_layer):
+        llm = self.ctx.llm[llm_name]
+        llm_path = os.path.join(Path.kobold_cpp, llm["file_name"])
+        context_size = min(llm["context_size"], self.ctx["llm_context_size"])
+        args = [self.get_kobold_cpp_executable()]
+        args.extend(shlex.split(self.ctx["koboldcpp_arg"]))
+        args.extend(["--gpulayers", str(gpu_layer), "--contextsize", str(context_size)])
+        args.extend(llm.get("launch_args", []))
+        args.append(llm_path)
+        return args
+
+    def build_generate_payload(self, text):
+        ctx = self.ctx
+        if self.ctx["llm_name"] not in self.ctx.llm:
+            self.ctx["llm_name"] = "[元祖] LightChatAssistant-TypeB-2x7B-IQ4_XS"
+            self.ctx["llm_gpu_layer"] = 0
+
+        llm_name = ctx["llm_name"]
+        llm = ctx.llm[llm_name]
+        max_context_length = min(llm["context_size"], ctx["llm_context_size"])
+        if ctx["max_length"] >= max_context_length:
+            print(
+                f'生成文の長さ ({ctx["max_length"]}) がコンテキストサイズ上限 ({max_context_length}) 以上なため、{max_context_length // 2} に短縮します。'
+            )
+            ctx["max_length"] = max_context_length // 2
+
+        stop_sequence = llm.get("stop_sequence")
+        if stop_sequence is None:
+            stop_sequence = self.get_stop_sequence()
+
+        args = {
+            "max_context_length": max_context_length,
+            "max_length": ctx["max_length"],
+            "prompt": text,
+            "quiet": False,
+            "stop_sequence": stop_sequence,
+            "rep_pen": ctx["rep_pen"],
+            "rep_pen_range": ctx["rep_pen_range"],
+            "rep_pen_slope": ctx["rep_pen_slope"],
+            "temperature": ctx["temperature"],
+            "tfs": ctx["tfs"],
+            "top_a": ctx["top_a"],
+            "top_k": ctx["top_k"],
+            "top_p": ctx["top_p"],
+            "typical": ctx["typical"],
+            "min_p": ctx["min_p"],
+            "sampler_order": ctx["sampler_order"],
+        }
+        args.update(llm.get("generate_args", {}))
+        return args
+
     def launch_server(self):
         loaded_model = self.get_model()
         if loaded_model is not None:
@@ -132,52 +181,12 @@ popd
         if not os.path.exists(llm_path):
             return f"{llm_path} がありません。"
 
-        context_size = min(llm["context_size"], self.ctx["llm_context_size"])
-        command_args = f'{self.ctx["koboldcpp_arg"]} --gpulayers {gpu_layer} --contextsize {context_size} {llm_path}'
-        if platform == "win32":
-            command = ["start", f"{llm_name} L{gpu_layer}", "cmd", "/c"]
-            command.append(f"{Path.kobold_cpp_win} {command_args} || pause")
-            subprocess.run(command, cwd=Path.kobold_cpp, shell=True)
-        else:
-            subprocess.Popen(f"{Path.kobold_cpp_linux} {command_args}", cwd=Path.kobold_cpp, shell=True)
+        command = self.build_launch_args(llm_name, gpu_layer)
+        self.platform.launch_command(command, cwd=Path.kobold_cpp)
         return None
 
     def generate(self, text):
-        ctx = self.ctx
-
-        if self.ctx["llm_name"] not in self.ctx.llm:
-            self.ctx["llm_name"] = "[元祖] LightChatAssistant-TypeB-2x7B-IQ4_XS"
-            self.ctx["llm_gpu_layer"] = 0
-
-        llm_name = ctx["llm_name"]
-        llm = ctx.llm[llm_name]
-
-        # api/extra/true_max_context_length なら立ち上げ済みサーバーに対応可能
-        max_context_length = min(llm["context_size"], ctx["llm_context_size"])
-        if ctx["max_length"] >= max_context_length:
-            print(
-                f'生成文の長さ ({ctx["max_length"]}) がコンテキストサイズ上限 ({max_context_length}) 以上なため、{max_context_length // 2} に短縮します。'
-            )
-            ctx["max_length"] = max_context_length // 2
-
-        args = {
-            "max_context_length": max_context_length,
-            "max_length": ctx["max_length"],
-            "prompt": text,
-            "quiet": False,
-            "stop_sequence": self.get_stop_sequence(),
-            "rep_pen": ctx["rep_pen"],
-            "rep_pen_range": ctx["rep_pen_range"],
-            "rep_pen_slope": ctx["rep_pen_slope"],
-            "temperature": ctx["temperature"],
-            "tfs": ctx["tfs"],
-            "top_a": ctx["top_a"],
-            "top_k": ctx["top_k"],
-            "top_p": ctx["top_p"],
-            "typical": ctx["typical"],
-            "min_p": ctx["min_p"],
-            "sampler_order": ctx["sampler_order"],
-        }
+        args = self.build_generate_payload(text)
         print(f"KoboldCpp.generate({args})")
         try:
             response = requests.post(self.generate_url, json=args)
