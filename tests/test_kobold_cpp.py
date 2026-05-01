@@ -141,3 +141,61 @@ def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):
     assert "--jinja" in bat_text
     assert '--template "chat template.jinja"' in bat_text
     assert '"modern.gguf"' in bat_text
+
+
+def test_launch_server_launches_built_command_with_kobold_dir(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    kobold_dir.mkdir()
+    (kobold_dir / "modern.gguf").write_text("", encoding="utf-8")
+    ctx = DummyContext(tmp_path)
+    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+    support.launch_command = Mock()
+    kobold = KoboldCpp(ctx, platform_support=support, kobold_cpp_dir=kobold_dir)
+    monkeypatch.setattr(kobold, "get_model", Mock(return_value=None))
+    expected_command = kobold.build_launch_args("Modern", 7)
+
+    result = kobold.launch_server()
+
+    assert result is None
+    support.launch_command.assert_called_once_with(expected_command, cwd=str(kobold_dir))
+
+
+def test_generate_posts_payload_and_returns_text(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    log_path = tmp_path / "generate-log.txt"
+    ctx = DummyContext(tmp_path)
+    response = Mock(status_code=200)
+    response.json.return_value = {"results": [{"text": " world"}]}
+    post = Mock(return_value=response)
+    monkeypatch.setattr(kobold_cpp.requests, "post", post)
+    monkeypatch.setattr(AppPath, "generate_log", str(log_path))
+    kobold = KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    result = kobold.generate("hello")
+
+    assert result == " world"
+    post.assert_called_once()
+    assert post.call_args.args == (kobold.generate_url,)
+    posted_json = post.call_args.kwargs["json"]
+    assert posted_json["prompt"] == "hello"
+    assert posted_json["reasoning_effort"] == "low"
+
+
+def test_build_launch_args_shlex_splits_user_koboldcpp_arg(tmp_path):
+    kobold_dir = tmp_path / "KoboldCpp"
+    ctx = DummyContext(tmp_path)
+    ctx["koboldcpp_arg"] = '--usecublas --threads "8 workers"'
+    kobold = KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    args = kobold.build_launch_args("Modern", 7)
+
+    assert "--threads" in args
+    assert "8 workers" in args
