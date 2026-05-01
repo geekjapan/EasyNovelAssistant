@@ -65,7 +65,7 @@ uv run EasyNovelAssistant\setup\setup_easy_novel_assistant.py
 起動:
 
 ```bat
-Run-EasyNovelAssistant.bat
+uv run EasyNovelAssistant\setup\run_easy_novel_assistant.py
 ```
 
 KoboldCpp は `KoboldCpp\koboldcpp.exe` を利用します。Style-Bert-VITS2 のインストールや起動はアプリ内のメニュー、または `EasyNovelAssistant\setup\Setup-Style-Bert-VITS2.bat` / `EasyNovelAssistant\setup\Run-Style-Bert-VITS2.bat` を利用します。
@@ -81,7 +81,7 @@ uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py
 起動:
 
 ```sh
-sh Run-EasyNovelAssistant.sh
+uv run EasyNovelAssistant/setup/run_easy_novel_assistant.py
 ```
 
 KoboldCpp は `KoboldCpp/koboldcpp-linux-x64` を利用します。Tkinter が入っていない環境では、ディストリビューションのパッケージマネージャで `python3-tk` 相当のパッケージを入れてください。
@@ -97,7 +97,7 @@ uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py
 起動:
 
 ```sh
-sh Run-EasyNovelAssistant.sh
+uv run EasyNovelAssistant/setup/run_easy_novel_assistant.py
 ```
 
 KoboldCpp は `KoboldCpp/koboldcpp-mac-arm64` を利用します。初回起動時に macOS のセキュリティ確認が出る場合は、システム設定から実行を許可してください。
@@ -209,7 +209,7 @@ python3 -m pytest -q
 
 KoboldCpp は起動 OS に応じて `koboldcpp.exe`、`koboldcpp-linux-x64`、`koboldcpp-mac-arm64` を利用します。macOS Intel は KoboldCpp のバイナリを手動で用意してください。
 
-Linux/macOS では `uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py` を実行してから `Run-EasyNovelAssistant.sh` で起動します。
+Linux/macOS では `uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py` を実行してから `uv run EasyNovelAssistant/setup/run_easy_novel_assistant.py` で起動します。
 
 インストールや更新で困ったことが起きたら、[こちら](https://github.com/Zuntan03/EasyNovelAssistant/wiki/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%81%A8%E6%9B%B4%E6%96%B0) を参照してください。
 

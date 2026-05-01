@@ -1173,38 +1173,15 @@ Replace `Run-EasyNovelAssistant.sh` with:
 #!/bin/sh
 set -eu
 
-download_sample() {
-    target_dir="$1"
-    file_name="$2"
-    mkdir -p "$target_dir"
-    if [ ! -e "$target_dir/$file_name" ]; then
-        curl -sSLo "$target_dir/$file_name" "https://yyy.wpx.jp/EasyNovelAssistant/sample/$target_dir/$file_name"
-    fi
-}
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv command was not found."
+    echo "Install uv first: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
+fi
 
-download_root_sample() {
-    file_name="$1"
-    mkdir -p sample
-    if [ ! -e "sample/$file_name" ]; then
-        curl -sSLo "sample/$file_name" "https://yyy.wpx.jp/EasyNovelAssistant/sample/$file_name"
-    fi
-}
-
-download_root_sample special.json
-download_root_sample template.json
-download_root_sample sample.json
-download_root_sample nsfw.json
-download_root_sample speech.json
-
-download_sample sample/GoalSeek "00-企画.txt"
-download_sample sample/GoalSeek "01-執筆.txt"
-download_sample sample/GoalSeek "10-序章.txt"
-download_sample sample/GoalSeek "20-第一章.txt"
-download_sample sample/GoalSeek "30-第二章.txt"
-download_sample sample/GoalSeek "40-第三章.txt"
-download_sample sample/GoalSeek "50-終章.txt"
-
-uv run --with-requirements ./EasyNovelAssistant/setup/res/requirements.txt python ./EasyNovelAssistant/src/easy_novel_assistant.py
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$SCRIPT_DIR"
+uv run ./EasyNovelAssistant/setup/run_easy_novel_assistant.py
 ```
 
 - [ ] **Step 5: Add README platform note**
@@ -1230,6 +1207,8 @@ Run:
 ```bash
 sh -n EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh
 sh -n Run-EasyNovelAssistant.sh
+python3 -m py_compile EasyNovelAssistant/setup/setup_easy_novel_assistant.py
+python3 -m py_compile EasyNovelAssistant/setup/run_easy_novel_assistant.py
 ```
 
 Expected: both commands exit 0.
@@ -1391,6 +1370,8 @@ Run:
 ```bash
 sh -n EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh
 sh -n Run-EasyNovelAssistant.sh
+python3 -m py_compile EasyNovelAssistant/setup/setup_easy_novel_assistant.py
+python3 -m py_compile EasyNovelAssistant/setup/run_easy_novel_assistant.py
 ```
 
 Expected: both commands exit 0.
