@@ -1,7 +1,8 @@
-import os
-from pathlib import Path
+from unittest.mock import Mock
 
 from kobold_cpp import KoboldCpp
+import kobold_cpp
+from path import Path as AppPath
 from platform_support import PlatformInfo, PlatformSupport
 
 
@@ -42,15 +43,14 @@ class DummyContext(dict):
         self.tmp_path = tmp_path
 
 
-def test_build_launch_args_uses_platform_binary_and_model_launch_args(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
+def test_build_launch_args_uses_platform_binary_and_model_launch_args(tmp_path):
     kobold_dir = tmp_path / "KoboldCpp"
     kobold_dir.mkdir()
     model_path = kobold_dir / "modern.gguf"
     model_path.write_text("", encoding="utf-8")
     ctx = DummyContext(tmp_path)
     support = PlatformSupport(PlatformInfo("linux", "x86_64"))
-    kobold = KoboldCpp(ctx, platform_support=support)
+    kobold = KoboldCpp(ctx, platform_support=support, kobold_cpp_dir=kobold_dir)
 
     args = kobold.build_launch_args("Modern", 7)
 
@@ -63,11 +63,15 @@ def test_build_launch_args_uses_platform_binary_and_model_launch_args(tmp_path, 
     assert str(model_path) in args
 
 
-def test_build_generate_payload_merges_model_generate_args(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "KoboldCpp").mkdir()
+def test_build_generate_payload_merges_model_generate_args(tmp_path):
+    kobold_dir = tmp_path / "KoboldCpp"
+    kobold_dir.mkdir()
     ctx = DummyContext(tmp_path)
-    kobold = KoboldCpp(ctx, platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")))
+    kobold = KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
 
     payload = kobold.build_generate_payload("hello")
 
@@ -75,3 +79,65 @@ def test_build_generate_payload_merges_model_generate_args(tmp_path, monkeypatch
     assert payload["max_context_length"] == 8192
     assert payload["stop_sequence"] == ["<|im_end|>"]
     assert payload["reasoning_effort"] == "low"
+
+
+def test_init_does_not_mutate_global_path_constants(tmp_path):
+    kobold_dir = tmp_path / "custom-kobold"
+    before = (
+        AppPath.kobold_cpp,
+        AppPath.kobold_cpp_win,
+        AppPath.kobold_cpp_linux,
+        AppPath.kobold_cpp_mac_arm64,
+    )
+
+    KoboldCpp(
+        DummyContext(tmp_path),
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    after = (
+        AppPath.kobold_cpp,
+        AppPath.kobold_cpp_win,
+        AppPath.kobold_cpp_linux,
+        AppPath.kobold_cpp_mac_arm64,
+    )
+    assert after == before
+
+
+def test_download_model_uses_curl_argv_without_shell(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    ctx = DummyContext(tmp_path)
+    run = Mock(return_value=Mock(returncode=0))
+    monkeypatch.setattr(kobold_cpp.webbrowser, "open", Mock())
+    monkeypatch.setattr(kobold_cpp.subprocess, "run", run)
+    kobold = KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    result = kobold.download_model("Modern")
+
+    assert result is None
+    run.assert_called_once_with(
+        ["curl", "-k", "-L", "-O", "https://huggingface.co/example/modern/resolve/main/modern.gguf"],
+        cwd=str(kobold_dir),
+    )
+
+
+def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):
+    kobold_dir = tmp_path / "KoboldCpp"
+    ctx = DummyContext(tmp_path)
+    ctx.llm["Modern"]["launch_args"] = ["--jinja", "--template", "chat template.jinja"]
+
+    KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    bat_text = (kobold_dir / "Run-Modern-C8K-L0.bat").read_text(encoding="utf-8")
+    assert "--jinja" in bat_text
+    assert '--template "chat template.jinja"' in bat_text
+    assert '"modern.gguf"' in bat_text

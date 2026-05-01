@@ -23,7 +23,7 @@ set GPU_LAYERS=0
 set CONTEXT_SIZE={context_size}
 
 {curl_cmd}
-koboldcpp.exe --gpulayers %GPU_LAYERS% {option} --contextsize %CONTEXT_SIZE% {launch_args} {file_name}
+koboldcpp.exe --gpulayers %GPU_LAYERS% {option} --contextsize %CONTEXT_SIZE% {launch_args} "{file_name}"
 if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
 popd
 """
@@ -34,13 +34,10 @@ popd
 )
 """
 
-    def __init__(self, ctx, platform_support=None):
+    def __init__(self, ctx, platform_support=None, kobold_cpp_dir=None):
         self.ctx = ctx
         self.platform = platform_support or PlatformSupport()
-        Path.kobold_cpp = os.path.join(os.getcwd(), "KoboldCpp")
-        Path.kobold_cpp_win = os.path.join(Path.kobold_cpp, "koboldcpp.exe")
-        Path.kobold_cpp_linux = os.path.join(Path.kobold_cpp, "koboldcpp-linux-x64")
-        Path.kobold_cpp_mac_arm64 = os.path.join(Path.kobold_cpp, "koboldcpp-mac-arm64")
+        self.kobold_cpp_dir = str(kobold_cpp_dir or Path.kobold_cpp)
         self.base_url = f'http://{ctx["koboldcpp_host"]}:{ctx["koboldcpp_port"]}'
         self.model_url = f"{self.base_url}/api/v1/model"
         self.generate_url = f"{self.base_url}/api/v1/generate"
@@ -49,10 +46,11 @@ popd
 
         self.model_name = None
         normalize_llm_map(ctx.llm)
+        os.makedirs(self.kobold_cpp_dir, exist_ok=True)
 
         for llm_name, llm in ctx.llm.items():
             context_size = min(llm["context_size"], ctx["llm_context_size"])
-            bat_file = os.path.join(Path.kobold_cpp, f'Run-{llm["name"]}-C{context_size // 1024}K-L0.bat')
+            bat_file = os.path.join(self.kobold_cpp_dir, f'Run-{llm["name"]}-C{context_size // 1024}K-L0.bat')
 
             curl_cmd = ""
             for url in llm["urls"]:
@@ -60,11 +58,10 @@ popd
             bat_text = self.BAT_TEMPLATE.format(
                 curl_cmd=curl_cmd,
                 option=ctx["koboldcpp_arg"],
-                launch_args=" ".join(llm.get("launch_args", [])),
+                launch_args=subprocess.list2cmdline(llm.get("launch_args", [])),
                 context_size=context_size,
                 file_name=llm["file_name"],
             )
-            os.makedirs(Path.kobold_cpp, exist_ok=True)
             with open(bat_file, "w", encoding="utf-8") as f:
                 f.write(bat_text)
 
@@ -99,17 +96,17 @@ popd
         llm = self.ctx.llm[llm_name]
         webbrowser.open(llm["info_url"])
         for url in llm["urls"]:
-            curl_cmd = f"curl -k -LO {url}"
-            if subprocess.run(curl_cmd, shell=True, cwd=Path.kobold_cpp).returncode != 0:
-                return f"{llm_name} のダウンロードに失敗しました。\n{curl_cmd}"
+            curl_cmd = ["curl", "-k", "-L", "-O", url]
+            if subprocess.run(curl_cmd, cwd=self.kobold_cpp_dir).returncode != 0:
+                return f'{llm_name} のダウンロードに失敗しました。\n{" ".join(curl_cmd)}'
         return None
 
     def get_kobold_cpp_executable(self):
-        return str(self.platform.kobold_cpp_path(Path.kobold_cpp))
+        return str(self.platform.kobold_cpp_path(self.kobold_cpp_dir))
 
     def build_launch_args(self, llm_name, gpu_layer):
         llm = self.ctx.llm[llm_name]
-        llm_path = os.path.join(Path.kobold_cpp, llm["file_name"])
+        llm_path = os.path.join(self.kobold_cpp_dir, llm["file_name"])
         context_size = min(llm["context_size"], self.ctx["llm_context_size"])
         args = [self.get_kobold_cpp_executable()]
         args.extend(shlex.split(self.ctx["koboldcpp_arg"]))
@@ -171,7 +168,7 @@ popd
         gpu_layer = self.ctx["llm_gpu_layer"]
 
         llm = self.ctx.llm[llm_name]
-        llm_path = os.path.join(Path.kobold_cpp, llm["file_name"])
+        llm_path = os.path.join(self.kobold_cpp_dir, llm["file_name"])
 
         if not os.path.exists(llm_path):
             result = self.download_model(llm_name)
@@ -182,7 +179,7 @@ popd
             return f"{llm_path} がありません。"
 
         command = self.build_launch_args(llm_name, gpu_layer)
-        self.platform.launch_command(command, cwd=Path.kobold_cpp)
+        self.platform.launch_command(command, cwd=self.kobold_cpp_dir)
         return None
 
     def generate(self, text):
