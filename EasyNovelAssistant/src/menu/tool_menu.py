@@ -1,5 +1,5 @@
 ﻿import os
-import subprocess
+import shlex
 import tkinter as tk
 import webbrowser
 
@@ -9,10 +9,10 @@ from platform_support import PlatformSupport
 
 class ToolMenu:
 
-    def __init__(self, form, ctx):
+    def __init__(self, form, ctx, platform_support=None):
         self.form = form
         self.ctx = ctx
-        self.platform = PlatformSupport()
+        self.platform = platform_support or PlatformSupport()
 
         self.menu = tk.Menu(form.win, tearoff=False)
         self.form.menu_bar.add_cascade(label="ツール", menu=self.menu)
@@ -99,7 +99,7 @@ class ToolMenu:
 
     def _run_style_bert_vits2(self, bat, py):
         if self.platform.is_windows():
-            subprocess.run(["cmd", "/d", "/c", "start", "", "cmd", "/d", "/c", str(bat)], cwd=Path.style_bert_vits2)
+            self.platform.run_script_file(bat, cwd=Path.style_bert_vits2)
         else:
             python = self.platform.resolve_tool(os.path.join(Path.style_bert_vits2, "venv"), "python")
-            self.platform.launch_command([python] + py.split(), cwd=Path.style_bert_vits2)
+            self.platform.launch_command([python] + shlex.split(py), cwd=Path.style_bert_vits2)
