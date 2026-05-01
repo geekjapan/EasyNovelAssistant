@@ -1160,44 +1160,9 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 
-uv run --with-requirements ./EasyNovelAssistant/setup/res/requirements.txt python -c "import requests, tkinter"
-
-mkdir -p KoboldCpp
-cd KoboldCpp
-
-OS_NAME="$(uname -s)"
-MACHINE_NAME="$(uname -m)"
-KOBOLD_BIN=""
-
-case "$OS_NAME:$MACHINE_NAME" in
-    Linux:*)
-        KOBOLD_BIN="koboldcpp-linux-x64"
-        ;;
-    Darwin:arm64|Darwin:aarch64)
-        KOBOLD_BIN="koboldcpp-mac-arm64"
-        ;;
-    Darwin:*)
-        echo "macOS Intel does not have a default KoboldCpp binary in this setup script."
-        echo "Install KoboldCpp manually into $(pwd) and configure a custom binary if needed."
-        exit 1
-        ;;
-    *)
-        echo "Unsupported platform: $OS_NAME $MACHINE_NAME"
-        exit 1
-        ;;
-esac
-
-if [ ! -e "$KOBOLD_BIN" ]; then
-    curl -LO "https://github.com/LostRuins/koboldcpp/releases/latest/download/$KOBOLD_BIN"
-    chmod +x "$KOBOLD_BIN"
-fi
-
-if [ ! -e "Vecteus-v1-IQ4_XS.gguf" ]; then
-    curl -LO https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1_IQ4_XS.gguf || \
-    curl -LO https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf
-fi
-
-cd -
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$SCRIPT_DIR/../.."
+uv run ./EasyNovelAssistant/setup/setup_easy_novel_assistant.py
 ```
 
 - [ ] **Step 4: Update Unix launcher sample downloads**
@@ -1252,8 +1217,8 @@ In `README.md`, under "インストールと更新", add:
 - Python 3.10 以上
 - uv
 - Windows 10/11: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.bat`
-- Linux x64: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh`
-- macOS Apple Silicon: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh`
+- Linux x64: `uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py`
+- macOS Apple Silicon: `uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py`
 
 KoboldCpp は起動 OS に応じて `koboldcpp.exe`、`koboldcpp-linux-x64`、`koboldcpp-mac-arm64` を利用します。macOS Intel は KoboldCpp のバイナリを手動で用意してください。
 ```
