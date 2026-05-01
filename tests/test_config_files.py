@@ -37,6 +37,9 @@ def test_python_generated_files_are_ignored():
 
 def test_modern_model_entries_have_optional_metadata():
     llms = load_json(ROOT / "EasyNovelAssistant" / "setup" / "res" / "default_llm.json")
+    sequences = load_json(
+        ROOT / "EasyNovelAssistant" / "setup" / "res" / "default_llm_sequence.json"
+    )
 
     modern_entries = [
         name
@@ -51,3 +54,20 @@ def test_modern_model_entries_have_optional_metadata():
         assert value["urls"]
         assert isinstance(value.get("context_size"), int)
         assert isinstance(value.get("max_gpu_layer"), int)
+
+    gemma = llms["最新・汎用/Gemma-3-12B-it-Q4_K_M"]
+    assert gemma["context_size"] == 131072
+    assert gemma["max_gpu_layer"] == 99
+    assert gemma["launch_args"] == ["--jinja"]
+    assert gemma["generate_args"] == {}
+
+    qwen3 = llms["最新・日本語/Qwen3-14B-Q4_K_M"]
+    assert qwen3["context_size"] == 131072
+    assert qwen3["max_gpu_layer"] == 99
+    assert qwen3["launch_args"] == ["--jinja"]
+    assert qwen3["generate_args"] == {"reasoning_effort": "low"}
+    assert qwen3["stop_sequence"] == ["<|im_end|>"]
+
+    chat_template = sequences["ChatTemplate"]
+    assert "Qwen3" in chat_template["model_names"]
+    assert "gemma-3" in chat_template["model_names"]
