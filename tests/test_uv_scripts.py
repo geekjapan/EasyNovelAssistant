@@ -131,6 +131,19 @@ def test_setup_python_script_runs_speech_setup_during_initial_setup(monkeypatch)
     assert calls == ["deps", "kobold", "model", "speech"]
 
 
+def test_setup_python_script_builds_style_bert_uv_command():
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_style", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    command = module.style_bert_uv_command("server_fastapi.py", "--cpu")
+
+    assert command[:4] == ["uv", "run", "--python", module.sys.executable]
+    assert "--with-requirements" in command
+    assert command[-2:] == ["server_fastapi.py", "--cpu"]
+
+
 def test_run_python_script_builds_sample_urls_without_empty_path_segments():
     script = ROOT / "EasyNovelAssistant" / "setup" / "run_easy_novel_assistant.py"
     spec = importlib.util.spec_from_file_location("run_easy_novel_assistant", script)
