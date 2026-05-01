@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+import style_bert_vits2
 from path import Path as AppPath
 from platform_support import PlatformInfo, PlatformSupport
 from style_bert_vits2 import StyleBertVits2
@@ -13,6 +14,8 @@ class DummyContext(dict):
             style_bert_vits2_gpu=False,
             style_bert_vits2_command_timeout=0.05,
             max_speech_queue=3,
+            speech_volume=80,
+            speech_speed=1.2,
         )
 
 
@@ -65,3 +68,28 @@ def test_launch_server_on_windows_runs_script_nonblocking_with_cpu_arg(tmp_path)
     style.launch_server()
 
     support.run_script_file.assert_called_once_with(str(AppPath.style_bert_vits2_run), args=["--cpu"])
+
+
+def test_play_uses_ffplay_subprocess(monkeypatch):
+    popen = Mock(return_value=Mock(wait=Mock()))
+    monkeypatch.setattr(style_bert_vits2.subprocess, "Popen", popen)
+    style = StyleBertVits2(DummyContext())
+
+    style._play("/tmp/voice.wav")
+
+    popen.assert_called_once_with(
+        [
+            "ffplay",
+            "-volume",
+            "80",
+            "-af",
+            "atempo=1.2",
+            "-autoexit",
+            "-nodisp",
+            "-loglevel",
+            "fatal",
+            "/tmp/voice.wav",
+        ],
+        stdout=style_bert_vits2.subprocess.DEVNULL,
+    )
+    popen.return_value.wait.assert_called_once_with()
