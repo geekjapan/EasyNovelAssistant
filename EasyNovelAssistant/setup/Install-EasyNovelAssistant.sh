@@ -22,10 +22,9 @@ fi
 
 GITHUB="Zuntan03"
 APP_NAME="EasyNovelAssistant"
-APP_VENV_DIR="venv"
 CLONE_URL="https://github.com/"$GITHUB"/EasyNovelAssistant"
 
-if [ ! -d "$APP_VENV_DIR" ]; then
+if [ ! -d "$APP_NAME" ]; then
     echo "https://github.com/"$GITHUB"/EasyNovelAssistant"
     echo "https://github.com/LostRuins/koboldcpp"
     echo "https://github.com/litagin02/Style-Bert-VITS2"

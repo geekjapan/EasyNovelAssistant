@@ -1,34 +1,12 @@
-#!/bin/bash
+#!/bin/sh
+set -eu
 
-mkdir -p sample
-cd sample
-
-curl  -LO https://yyy.wpx.jp/EasyNovelAssistant/sample/special.json
-if [ $? -ne 0 ]; then
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv command was not found."
+    echo "Install uv first: https://docs.astral.sh/uv/getting-started/installation/"
     exit 1
 fi
 
-curl  -LO https://yyy.wpx.jp/EasyNovelAssistant/sample/template.json
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-curl  -LO https://yyy.wpx.jp/EasyNovelAssistant/sample/sample.json
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-curl  -LO https://yyy.wpx.jp/EasyNovelAssistant/sample/nsfw.json
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-curl  -LO https://yyy.wpx.jp/EasyNovelAssistant/sample/speech.json
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-cd -
-
-source ./venv/bin/activate
-python ./EasyNovelAssistant/src/easy_novel_assistant.py
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$SCRIPT_DIR"
+uv run ./EasyNovelAssistant/setup/run_easy_novel_assistant.py

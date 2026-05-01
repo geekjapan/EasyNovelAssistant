@@ -38,12 +38,6 @@ if not exist %FFMPEG_DIR%\ (
 	if !errorlevel! neq 0 ( pause & popd & exit /b 1 )
 )
 
-if not exist venv\Scripts\ffplay.exe (
-	echo xcopy /QY %FFMPEG_DIR%\bin\*.exe venv\Scripts\
-	xcopy /QY %FFMPEG_DIR%\bin\*.exe venv\Scripts\
-	if !errorlevel! neq 0 ( pause & popd & exit /b 1 )
-)
-
 endlocal
 popd
 
@@ -52,31 +46,10 @@ pushd %~dp0..\..\Style-Bert-VITS2
 call %~dp0ActivateVirtualEnvironment.bat
 if %errorlevel% neq 0 ( popd & exit /b 1 )
 
-echo python -m pip install -q --upgrade pip
-python -m pip install -q --upgrade pip
-if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
+set STYLE_BERT_UV_DEPS=--with-requirements requirements.txt --with GPUtil --with torch --with torchvision --with torchaudio --index https://download.pytorch.org/whl/cu118 --index-strategy unsafe-best-match
 
-echo pip install -q torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install -q torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
-
-@REM https://fate.5ch.net/test/read.cgi/liveuranus/1711873736/545
-@REM Fix https://github.com/litagin02/Style-Bert-VITS2/commit/053a6bf78505e427489e341805442db20400117a
-@REM echo pip install -q gradio==4.23.0
-@REM pip install -q gradio==4.23.0
-@REM if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
-
-echo pip install -q -r requirements.txt
-pip install -q -r requirements.txt
-if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
-
-@REM ModuleNotFoundError: No module named 'GPUtil'
-echo pip install -q GPUtil
-pip install -q GPUtil
-if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
-
-echo python initialize.py
-python initialize.py
+echo "%UV_CMD%" run --python "%PYTHON_CMD%" %STYLE_BERT_UV_DEPS% initialize.py
+"%UV_CMD%" run --python "%PYTHON_CMD%" %STYLE_BERT_UV_DEPS% initialize.py
 if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
 
 if not exist Server_cpu.bat (

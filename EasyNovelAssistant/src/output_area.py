@@ -66,7 +66,7 @@ class OutputArea:
         self.ctx.form.input_area.insert_text(text)
 
     def _on_middle_click(self, e):
-        if self.ctx["middle_click_speech"]:
+        if self.ctx["speech_enabled"] and self.ctx["middle_click_speech"]:
             self._speech(e)
         else:
             self._send_to_input(e)
@@ -75,10 +75,10 @@ class OutputArea:
     def _on_ctx_menu(self, event):
         self.ctx_menu.delete(0, tk.END)
 
-        if self.ctx.style_bert_vits2.models is None:
+        if self.ctx["speech_enabled"] and self.ctx.style_bert_vits2.models is None:
             self.ctx.style_bert_vits2.get_models()
 
-        if self.ctx.style_bert_vits2.models is not None:
+        if self.ctx["speech_enabled"] and self.ctx.style_bert_vits2.models is not None:
             self.ctx_menu.add_command(label="読み上げる", command=lambda: self._speech(event))
 
         self.ctx_menu.add_command(label="入力欄に送る", command=lambda: self._send_to_input(event))

@@ -1,4 +1,4 @@
-﻿requests==2.31.0
-tkinterdnd2==0.3.0
-scipy==1.13.0
-watchdog==4.0.0
+requests==2.33.1
+tkinterdnd2==0.4.3
+scipy==1.15.3
+watchdog==6.0.0

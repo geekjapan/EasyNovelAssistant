@@ -20,7 +20,8 @@ class Path:
 
     kobold_cpp = os.path.join(cwd, "KoboldCpp")
     kobold_cpp_win = os.path.join(kobold_cpp, "koboldcpp.exe")
-    kobold_cpp_linux = os.path.join(kobold_cpp, "koboldcpp-linux-x64-cuda1150")
+    kobold_cpp_linux = os.path.join(kobold_cpp, "koboldcpp-linux-x64")
+    kobold_cpp_mac_arm64 = os.path.join(kobold_cpp, "koboldcpp-mac-arm64")
 
     style_bert_vits2 = os.path.join(cwd, "Style-Bert-VITS2")
     style_bert_vits2_config = os.path.join(style_bert_vits2, "config.yml")
@@ -46,10 +47,9 @@ class Path:
 
     movie = os.path.join(cwd, "movie")
     os.makedirs(movie, exist_ok=True)
-    venv = os.path.join(cwd, "venv")
-    scripts = os.path.join(venv, "Scripts")
-    ffmpeg = os.path.join(scripts, "ffmpeg.exe")
-    ffplay = os.path.join(scripts, "ffplay.exe")
+    ffmpeg_bundle_bin = os.path.join(setup, "lib", "ffmpeg-master-latest-win64-gpl", "bin")
+    ffmpeg = os.path.join(ffmpeg_bundle_bin, "ffmpeg.exe")
+    ffplay = os.path.join(ffmpeg_bundle_bin, "ffplay.exe")
 
     @classmethod
     def init(cls, ctx):

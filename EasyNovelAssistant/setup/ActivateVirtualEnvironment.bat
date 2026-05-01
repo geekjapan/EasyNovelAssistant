@@ -45,9 +45,6 @@ if not "%PYTHON_VERSION_VAR:~7,4%"=="3.10" (
 		%LOCAL_PYTHON_CMD% %PYTHON_DIR%\get-pip.py --no-warn-script-location
 		if %errorlevel% neq 0 ( pause & exit /b 1 )
 
-		echo %LOCAL_PYTHON_CMD% -m pip install virtualenv --no-warn-script-location
-		%LOCAL_PYTHON_CMD% -m pip install virtualenv --no-warn-script-location
-		if %errorlevel% neq 0 ( pause & exit /b 1 )
 	)
 )
 
@@ -59,29 +56,27 @@ if not "%PYTHON_VERSION_VAR:~7,4%"=="3.10" (
 	pause & exit /b 1
 )
 
-if not "%~1"=="" (
-	set VIRTUAL_ENV_DIR=%~1
-) else (
-	set VIRTUAL_ENV_DIR=venv
-)
-
-if not exist %VIRTUAL_ENV_DIR%\ (
-	echo %PYTHON_CMD% -m venv %VIRTUAL_ENV_DIR%
-	%PYTHON_CMD% -m venv %VIRTUAL_ENV_DIR%
-
-	if not exist %VIRTUAL_ENV_DIR%\ (
-		echo %PYTHON_CMD% -m pip install virtualenv --no-warn-script-location
-		%PYTHON_CMD% -m pip install virtualenv --no-warn-script-location
-
-		echo %PYTHON_CMD% -m virtualenv --copies %VIRTUAL_ENV_DIR%
-		%PYTHON_CMD% -m virtualenv --copies %VIRTUAL_ENV_DIR%
-	)
-
-	if not exist %VIRTUAL_ENV_DIR%\ (
-		echo "[ERROR] Python 仮想環境を作成できませんでした。Python 3.10.6 を手動でパスを通してインストールしてください。"
-		pause & exit /b 1
+set UV_CMD=
+for /f "tokens=*" %%i in ('where uv 2^>NUL') do if not defined UV_CMD set UV_CMD=%%i
+if not defined UV_CMD (
+	for /f "tokens=*" %%i in ('%PYTHON_CMD% -c "import os, sysconfig; print(os.path.join(sysconfig.get_path('scripts'), 'uv.exe'))"') do set UV_CMD=%%i
+	if not exist "%UV_CMD%" (
+		echo %PYTHON_CMD% -m pip install uv --no-warn-script-location
+		%PYTHON_CMD% -m pip install uv --no-warn-script-location
+		if %errorlevel% neq 0 ( pause & exit /b 1 )
 	)
 )
 
-call %VIRTUAL_ENV_DIR%\Scripts\activate.bat
+if not defined UV_CMD (
+	echo "[ERROR] uv コマンドを利用できませんでした。https://docs.astral.sh/uv/getting-started/installation/ を参照して uv をインストールしてください。"
+	pause & exit /b 1
+)
+
+if not exist "%UV_CMD%" (
+	echo "[ERROR] uv コマンドを利用できませんでした。https://docs.astral.sh/uv/getting-started/installation/ を参照して uv をインストールしてください。"
+	pause & exit /b 1
+)
+
+echo %UV_CMD% --version
+"%UV_CMD%" --version
 if %errorlevel% neq 0 ( pause & exit /b 1 )

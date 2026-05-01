@@ -1,4 +1,128 @@
-﻿# EasyNovelAssistant
+﻿# EasyNovelAssistant Fork
+
+このリポジトリは [Zuntan03/EasyNovelAssistant](https://github.com/Zuntan03/EasyNovelAssistant) を元にした Fork です。  
+Fork 元の README は、このセクションの下に残しています。
+
+この Fork では、元の Windows 中心の配布を保ちつつ、Windows / Linux / macOS Apple Silicon で同じコードベースを動かしやすくすることを目的に更新しています。
+
+## Fork 後の主な更新内容
+
+- Windows / Linux / macOS の OS 差分を `PlatformSupport` に集約しました。
+- KoboldCpp の起動、モデルダウンロード、生成リクエスト構築を整理し、shell 依存の起動処理を減らしました。
+- Linux x64 と macOS Apple Silicon 用の KoboldCpp バイナリ名に対応しました。
+- Style-Bert-VITS2、動画生成、ツールメニューの起動処理をプラットフォーム別に扱うようにしました。
+- Unix 用セットアップと起動スクリプトを追加・強化しました。
+- モデルメタデータ正規化を追加し、`launch_args`、`generate_args`、`stop_sequence`、`info_url` などの拡張項目に対応しました。
+- Gemma 3 / Qwen3 系 GGUF モデルのプリセットと chat-template 用設定を追加しました。
+- モデルメニューから Hugging Face の GGUF モデル URL または `owner/repo` を追加できるようにしました。
+- 読み上げ機能は初期セットアップ時に導入し、アプリ内の読み上げメニューは ON/OFF のみを扱うようにしました。
+- ダウンロード処理を一時ファイル経由にして、失敗時に壊れたファイルが残りにくいようにしました。
+- pytest ベースの回帰テストを追加しました。
+- `.gitignore` と `.gitattributes` を追加し、生成物と改行・空白検査の扱いを整理しました。
+
+## Fork 後の更新履歴
+
+### 2026/05/02
+
+- 読み上げメニューを機能 ON/OFF のみに整理し、Style-Bert-VITS2 の導入を初期セットアップへ移しました。
+- Style-Bert-VITS2 のセットアップと起動を `uv run` ベースに変更しました。
+- Hugging Face の GGUF モデルをモデルメニューから追加し、`llm.json` に保存できるようにしました。
+- PR レビュー対応として、Windows の `.bat` / `.cmd` 起動を `cmd /d /c call ... || pause` 経由に変更しました。
+- Style-Bert-VITS2 の Windows 起動を非ブロッキングに戻し、`--cpu` が正しくバッチファイルへ渡るようにしました。
+- KoboldCpp の生成バッチファイル名をサニタイズし、ユーザー定義モデル名に Windows で使えない文字が含まれても壊れにくくしました。
+- `llm.json` で明示された `info_url` を上書きしないようにしました。
+- Unix の動画生成スクリプトで `ffmpeg` の `-vf` / `-af` が単一引数として渡ることをテストで固定しました。
+
+### 2026/05/01 - 2026/05/02
+
+- クロスプラットフォーム対応の設計・実装計画を `docs/superpowers/` に追加しました。
+- KoboldCpp / Style-Bert-VITS2 / 動画生成 / ツールメニューを、Windows 固有の分岐からプラットフォーム抽象へ移行しました。
+- Linux / macOS 用セットアップスクリプトとランチャーを整備しました。
+- 近年の GGUF モデル向けに、Gemma 3 と Qwen3 のプリセット、Jinja / chat-template 関連のメタデータを追加しました。
+- 依存パッケージを更新しました。
+- テスト基盤として `pytest.ini`、`requirements-dev.txt`、各種 `tests/` を追加しました。
+
+## 実行方法
+
+### 共通
+
+```sh
+git clone https://github.com/geekjapan/EasyNovelAssistant.git
+cd EasyNovelAssistant
+```
+
+Python 3.10 以上と `uv` が必要です。Windows ではセットアップスクリプトが Python 3.10.6 の埋め込み版と `uv` を用意できます。Linux / macOS では、事前に `python3`、`curl`、`git`、`uv` を利用できる状態にしてください。
+
+### Windows 10 / 11
+
+初回セットアップ:
+
+```bat
+EasyNovelAssistant\setup\Setup-EasyNovelAssistant.bat
+```
+
+`uv` と Python が利用できる環境では、共通の PEP 723 セットアップも使えます。
+
+```bat
+uv run EasyNovelAssistant\setup\setup_easy_novel_assistant.py
+```
+
+起動:
+
+```bat
+uv run EasyNovelAssistant\setup\run_easy_novel_assistant.py
+```
+
+KoboldCpp は `KoboldCpp\koboldcpp.exe` を利用します。Windows では初回セットアップ時に Style-Bert-VITS2 も導入します。読み上げメニューは機能の ON/OFF のみを扱い、詳細な音声生成・学習ツールはツールメニューまたは `EasyNovelAssistant\setup\Run-Style-Bert-VITS2.bat` から起動します。
+
+### Linux x64
+
+初回セットアップ:
+
+```sh
+uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py
+```
+
+起動:
+
+```sh
+uv run EasyNovelAssistant/setup/run_easy_novel_assistant.py
+```
+
+KoboldCpp は `KoboldCpp/koboldcpp-linux-x64` を利用します。Tkinter が入っていない環境では、ディストリビューションのパッケージマネージャで `python3-tk` 相当のパッケージを入れてください。
+
+### macOS Apple Silicon
+
+初回セットアップ:
+
+```sh
+uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py
+```
+
+起動:
+
+```sh
+uv run EasyNovelAssistant/setup/run_easy_novel_assistant.py
+```
+
+KoboldCpp は `KoboldCpp/koboldcpp-mac-arm64` を利用します。初回起動時に macOS のセキュリティ確認が出る場合は、システム設定から実行を許可してください。
+
+### macOS Intel
+
+この Fork のセットアップスクリプトは、macOS Intel 向け KoboldCpp バイナリを自動取得しません。KoboldCpp を手動で用意し、必要に応じてアプリ設定からカスタムバイナリを指定してください。
+
+## 開発・検証
+
+開発用テストを実行する場合:
+
+```sh
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest -q
+```
+
+## オリジナル README
+
+# EasyNovelAssistant
 
 軽量で規制も検閲もない日本語ローカル LLM『[LightChatAssistant-TypeB](https://huggingface.co/Sdff-Ltba/LightChatAssistant-TypeB-2x7B-GGUF)』による、簡単なノベル生成アシスタントです。  
 ローカル特権の永続生成 Generate forever で、当たりガチャを積み上げます。読み上げにも対応。
@@ -80,7 +204,19 @@
 
 ## インストールと更新
 
-インストールや更新で困ったことが起きたら、[こちら](https://github.com/Zuntan03/EasyNovelAssistant/wiki/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%81%A8%E6%9B%B4%E6%96%B0) を参照してください。  
+### 対応環境
+
+- Python 3.10 以上
+- uv
+- Windows 10/11: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.bat`
+- Linux x64: `uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py`
+- macOS Apple Silicon: `uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py`
+
+KoboldCpp は起動 OS に応じて `koboldcpp.exe`、`koboldcpp-linux-x64`、`koboldcpp-mac-arm64` を利用します。macOS Intel は KoboldCpp のバイナリを手動で用意してください。
+
+Linux/macOS では `uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py` を実行してから `uv run EasyNovelAssistant/setup/run_easy_novel_assistant.py` で起動します。
+
+インストールや更新で困ったことが起きたら、[こちら](https://github.com/Zuntan03/EasyNovelAssistant/wiki/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%81%A8%E6%9B%B4%E6%96%B0) を参照してください。
 
 1. [`Install-EasyNovelAssistant.bat`](https://github.com/Zuntan03/EasyNovelAssistant/raw/main/EasyNovelAssistant/setup/Install-EasyNovelAssistant.bat?v=2) を右クリックして `名前をつけて保存` で、インストール先フォルダ（**英数字のパスで空白や日本語を含まない**）にダウンロードして実行します。
 	- **`WindowsによってPCが保護されました` と表示されたら、`詳細表示` から `実行` します。**

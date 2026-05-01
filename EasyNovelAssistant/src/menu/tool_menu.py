@@ -1,17 +1,19 @@
 ﻿import os
-import subprocess
+import shlex
+import sys
 import tkinter as tk
 import webbrowser
-from sys import platform
 
 from path import Path
+from platform_support import PlatformSupport
 
 
 class ToolMenu:
 
-    def __init__(self, form, ctx):
+    def __init__(self, form, ctx, platform_support=None):
         self.form = form
         self.ctx = ctx
+        self.platform = platform_support or PlatformSupport()
 
         self.menu = tk.Menu(form.win, tearoff=False)
         self.form.menu_bar.add_cascade(label="ツール", menu=self.menu)
@@ -93,16 +95,31 @@ class ToolMenu:
             self.menu.add_command(label="つくよみちゃん 音声モデル", command=lambda: webbrowser.open(url))
 
     def _run_kobold_cpp(self, *args):
-        if platform == "win32":
-            command = ["start", "cmd", "/c"]
-            command.append(f"{Path.kobold_cpp_win} || pause")
-            subprocess.run(command, cwd=Path.kobold_cpp, shell=True)
-        else:
-            subprocess.Popen(f"{Path.kobold_cpp_linux}", cwd=Path.kobold_cpp, shell=True)
+        executable = self.platform.kobold_cpp_path(Path.kobold_cpp)
+        self.platform.launch_command([executable], cwd=Path.kobold_cpp)
 
     def _run_style_bert_vits2(self, bat, py):
-        if platform == "win32":
-            subprocess.run(["start", "cmd", "/c", f"{bat} || pause"], cwd=Path.style_bert_vits2, shell=True)
+        if self.platform.is_windows():
+            self.platform.run_script_file(bat, cwd=Path.style_bert_vits2)
         else:
-            python = os.path.join(Path.style_bert_vits2, "venv", "Scripts", "python")
-            subprocess.Popen(f"{python} {py}", cwd=Path.style_bert_vits2, shell=True)
+            command = [
+                "uv",
+                "run",
+                "--python",
+                sys.executable,
+                "--with-requirements",
+                "requirements.txt",
+                "--with",
+                "GPUtil",
+                "--with",
+                "torch",
+                "--with",
+                "torchvision",
+                "--with",
+                "torchaudio",
+                "--index",
+                "https://download.pytorch.org/whl/cu118",
+                "--index-strategy",
+                "unsafe-best-match",
+            ] + shlex.split(py)
+            self.platform.launch_command(command, cwd=Path.style_bert_vits2)
