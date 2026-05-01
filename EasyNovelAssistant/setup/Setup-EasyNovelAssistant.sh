@@ -41,13 +41,15 @@ case "$OS_NAME:$MACHINE_NAME" in
 esac
 
 if [ ! -e "$KOBOLD_BIN" ]; then
-    curl -LO "https://github.com/LostRuins/koboldcpp/releases/latest/download/$KOBOLD_BIN"
+    curl -fLO "https://github.com/LostRuins/koboldcpp/releases/latest/download/$KOBOLD_BIN"
     chmod +x "$KOBOLD_BIN"
 fi
 
 if [ ! -e "Vecteus-v1-IQ4_XS.gguf" ]; then
-    curl -LO https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1_IQ4_XS.gguf || \
-    curl -LO https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf
+    curl -fLO https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1_IQ4_XS.gguf || {
+        rm -f Vecteus-v1_IQ4_XS.gguf
+        curl -fLO https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf
+    }
 fi
 
 cd -
