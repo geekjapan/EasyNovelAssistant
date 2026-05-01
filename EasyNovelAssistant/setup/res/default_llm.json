@@ -203,5 +203,34 @@
 			"https://huggingface.co/pmysl/c4ai-command-r-plus-GGUF/resolve/main/command-r-plus-Q3_K_M-00001-of-00002.gguf",
 			"https://huggingface.co/pmysl/c4ai-command-r-plus-GGUF/resolve/main/command-r-plus-Q3_K_M-00002-of-00002.gguf"
 		]
+	},
+	"最新・汎用/Gemma-3-12B-it-Q4_K_M": {
+		"max_gpu_layer": 99,
+		"context_size": 131072,
+		"urls": [
+			"https://huggingface.co/unsloth/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf"
+		],
+		"launch_args": [
+			"--jinja"
+		],
+		"generate_args": {},
+		"notes": "KoboldCpp の Jinja/chat template 対応を利用します。"
+	},
+	"最新・日本語/Qwen3-14B-Q4_K_M": {
+		"max_gpu_layer": 99,
+		"context_size": 131072,
+		"urls": [
+			"https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf"
+		],
+		"launch_args": [
+			"--jinja"
+		],
+		"generate_args": {
+			"reasoning_effort": "low"
+		},
+		"stop_sequence": [
+			"<|im_end|>"
+		],
+		"notes": "Thinking 系モデル向け。reasoning_effort は KoboldCpp 側が対応する場合に渡されます。"
 	}
 }

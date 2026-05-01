@@ -75,5 +75,15 @@
 		"stop": [
 			"<|END_OF_TURN_TOKEN|>"
 		]
+	},
+	"ChatTemplate": {
+		"model_names": [
+			"Gemma-3",
+			"Qwen3"
+		],
+		"instruct": "{0}",
+		"stop": [
+			"<|im_end|>"
+		]
 	}
 }

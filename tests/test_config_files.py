@@ -33,3 +33,21 @@ def test_python_generated_files_are_ignored():
     assert "__pycache__/" in text
     assert "*.py[cod]" in text
     assert ".pytest_cache/" in text
+
+
+def test_modern_model_entries_have_optional_metadata():
+    llms = load_json(ROOT / "EasyNovelAssistant" / "setup" / "res" / "default_llm.json")
+
+    modern_entries = [
+        name
+        for name, value in llms.items()
+        if value.get("launch_args") or value.get("generate_args") or value.get("stop_sequence")
+    ]
+
+    assert modern_entries
+    for name in modern_entries:
+        value = llms[name]
+        assert isinstance(value.get("urls"), list)
+        assert value["urls"]
+        assert isinstance(value.get("context_size"), int)
+        assert isinstance(value.get("max_gpu_layer"), int)
