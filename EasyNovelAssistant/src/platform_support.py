@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-WINDOWS_CMD_METACHARACTERS = set("&|<>()^")
+WINDOWS_UNSAFE_SCRIPT_PATH_CHARACTERS = set("&|<>^")
 
 
 def _is_windows_batch_file(path):
@@ -14,7 +14,7 @@ def _is_windows_batch_file(path):
 
 
 def _has_windows_cmd_metacharacters(value):
-    return any(character in str(value) for character in WINDOWS_CMD_METACHARACTERS)
+    return any(character in str(value) for character in WINDOWS_UNSAFE_SCRIPT_PATH_CHARACTERS)
 
 
 @dataclass(frozen=True)

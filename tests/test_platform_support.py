@@ -118,13 +118,27 @@ def test_windows_run_script_file_returns_popen(monkeypatch, tmp_path):
     popen.assert_called_once_with([str(script)], cwd=tmp_path, creationflags=16)
 
 
-def test_windows_run_script_file_rejects_cmd_metacharacters(monkeypatch):
+def test_windows_run_script_file_accepts_parentheses_in_path(monkeypatch):
+    support = PlatformSupport(PlatformInfo("win32", "AMD64"))
+    script = "C:/Users/me/Downloads/EasyNovelAssistant (1)/movie/out.bat"
+    popen = Mock(return_value="process")
+    monkeypatch.setattr(platform_support.subprocess, "CREATE_NEW_CONSOLE", 16, raising=False)
+    monkeypatch.setattr(platform_support.subprocess, "Popen", popen)
+
+    result = support.run_script_file(script)
+
+    assert result == "process"
+    popen.assert_called_once_with([script], cwd=None, creationflags=16)
+
+
+@pytest.mark.parametrize("character", ["&", "|", "<", ">", "^"])
+def test_windows_run_script_file_rejects_cmd_metacharacters(monkeypatch, character):
     support = PlatformSupport(PlatformInfo("win32", "AMD64"))
     popen = Mock()
     monkeypatch.setattr(platform_support.subprocess, "Popen", popen)
 
     with pytest.raises(ValueError):
-        support.run_script_file("C:/bad&path/setup.bat")
+        support.run_script_file(f"C:/bad{character}path/setup.bat")
 
     popen.assert_not_called()
 
