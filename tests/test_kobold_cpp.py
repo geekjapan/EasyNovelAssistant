@@ -285,3 +285,21 @@ def test_build_launch_args_shlex_splits_user_koboldcpp_arg(tmp_path):
 
     assert "--threads" in args
     assert "8 workers" in args
+
+
+def test_build_launch_args_preserves_windows_paths_in_user_koboldcpp_arg(tmp_path):
+    kobold_dir = tmp_path / "KoboldCpp"
+    ctx = DummyContext(tmp_path)
+    ctx["koboldcpp_arg"] = r'--usecublas --lora "C:\tmp\my lora.bin" --mmproj C:\tmp\vision.gguf'
+    kobold = KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("win32", "AMD64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    args = kobold.build_launch_args("Modern", 7)
+
+    assert r"C:\tmp\my lora.bin" in args
+    assert r"C:\tmp\vision.gguf" in args
+    assert r"C:tmpmy lora.bin" not in args
+    assert r"C:tmpvision.gguf" not in args

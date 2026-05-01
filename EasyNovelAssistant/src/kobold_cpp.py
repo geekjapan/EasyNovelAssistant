@@ -11,6 +11,20 @@ from path import Path
 from platform_support import PlatformSupport
 
 
+def _strip_surrounding_quotes(value):
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        return value[1:-1]
+    return value
+
+
+def split_user_args(value, is_windows=False):
+    if not value:
+        return []
+    if is_windows:
+        return [_strip_surrounding_quotes(arg) for arg in shlex.split(value, posix=False)]
+    return shlex.split(value)
+
+
 class KoboldCpp:
     BAT_TEMPLATE = r"""@echo off
 chcp 65001 > NUL
@@ -144,7 +158,7 @@ popd
         llm_path = os.path.join(self.kobold_cpp_dir, llm["file_name"])
         context_size = min(llm["context_size"], self.ctx["llm_context_size"])
         args = [self.get_kobold_cpp_executable()]
-        args.extend(shlex.split(self.ctx["koboldcpp_arg"]))
+        args.extend(split_user_args(self.ctx["koboldcpp_arg"], is_windows=self.platform.is_windows()))
         args.extend(["--gpulayers", str(gpu_layer), "--contextsize", str(context_size)])
         args.extend(llm.get("launch_args", []))
         args.append(llm_path)
