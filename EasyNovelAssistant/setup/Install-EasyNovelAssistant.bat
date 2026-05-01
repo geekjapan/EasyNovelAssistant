@@ -10,7 +10,6 @@ if not exist %CURL_CMD% (
 
 set APP_NAME=EasyNovelAssistant
 set APP_NAME_TEMP=%APP_NAME%-temp
-set APP_VENV_DIR=venv
 set APP_SETUP=%APP_NAME%\setup
 set APP_LIB_DIR=%APP_SETUP%\lib
 set PORTABLE_GIT_DIR=%~dp0%APP_LIB_DIR%\PortableGit\bin
@@ -27,7 +26,7 @@ if "!CURRENT_PATH: =!" neq "%CURRENT_PATH%" (
 	pause & popd & exit /b 1
 )
 
-if not exist %APP_VENV_DIR%\ (
+if not exist %APP_NAME%\ (
 	echo https://www.python.org
 	echo https://github.com/pypa/get-pip
 	echo https://github.com/git-for-windows

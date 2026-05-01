@@ -46,7 +46,7 @@ git clone https://github.com/geekjapan/EasyNovelAssistant.git
 cd EasyNovelAssistant
 ```
 
-Python 3.10 以上が必要です。Windows ではセットアップスクリプトが Python 3.10.6 の埋め込み版を利用できます。Linux / macOS では、事前に `python3`、`curl`、`git` を利用できる状態にしてください。
+Python 3.10 以上と `uv` が必要です。Windows ではセットアップスクリプトが Python 3.10.6 の埋め込み版と `uv` を用意できます。Linux / macOS では、事前に `python3`、`curl`、`git`、`uv` を利用できる状態にしてください。
 
 ### Windows 10 / 11
 
@@ -196,6 +196,7 @@ python3 -m pytest -q
 ### 対応環境
 
 - Python 3.10 以上
+- uv
 - Windows 10/11: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.bat`
 - Linux x64: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh`
 - macOS Apple Silicon: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh`

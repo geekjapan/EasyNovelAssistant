@@ -1,14 +1,10 @@
 #!/bin/sh
 set -eu
 
-if command -v python3 >/dev/null 2>&1; then
-    PYTHON=python3
-else
-    PYTHON=python
-fi
-
-if [ ! -d "venv" ]; then
-    "$PYTHON" -m venv venv
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv command was not found."
+    echo "Install uv first: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
 fi
 
 download_file() {
@@ -24,9 +20,7 @@ download_file() {
     fi
 }
 
-. venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r ./EasyNovelAssistant/setup/res/requirements.txt
+uv run --with-requirements ./EasyNovelAssistant/setup/res/requirements.txt python -c "import requests, tkinter"
 
 mkdir -p KoboldCpp
 cd KoboldCpp

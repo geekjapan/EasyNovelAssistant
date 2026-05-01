@@ -62,6 +62,6 @@ pushd %~dp0
 call EasyNovelAssistant\setup\ActivateVirtualEnvironment.bat
 if %errorlevel% neq 0 ( popd & exit /b 1 )
 
-python EasyNovelAssistant\src\easy_novel_assistant.py
+"%UV_CMD%" run --with-requirements EasyNovelAssistant\setup\res\requirements.txt --python %PYTHON_CMD% python EasyNovelAssistant\src\easy_novel_assistant.py
 if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
 popd

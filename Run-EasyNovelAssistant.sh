@@ -46,5 +46,10 @@ download_sample sample/GoalSeek GoalSeek "30-第二章.txt"
 download_sample sample/GoalSeek GoalSeek "40-第三章.txt"
 download_sample sample/GoalSeek GoalSeek "50-終章.txt"
 
-. ./venv/bin/activate
-python ./EasyNovelAssistant/src/easy_novel_assistant.py
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv command was not found."
+    echo "Install uv first: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
+fi
+
+uv run --with-requirements ./EasyNovelAssistant/setup/res/requirements.txt python ./EasyNovelAssistant/src/easy_novel_assistant.py

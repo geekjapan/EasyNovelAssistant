@@ -1154,19 +1154,13 @@ Replace `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh` with:
 #!/bin/sh
 set -eu
 
-if command -v python3 >/dev/null 2>&1; then
-    PYTHON=python3
-else
-    PYTHON=python
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv command was not found."
+    echo "Install uv first: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
 fi
 
-if [ ! -d "venv" ]; then
-    "$PYTHON" -m venv venv
-fi
-
-. venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r ./EasyNovelAssistant/setup/res/requirements.txt
+uv run --with-requirements ./EasyNovelAssistant/setup/res/requirements.txt python -c "import requests, tkinter"
 
 mkdir -p KoboldCpp
 cd KoboldCpp
@@ -1245,8 +1239,7 @@ download_sample sample/GoalSeek "30-第二章.txt"
 download_sample sample/GoalSeek "40-第三章.txt"
 download_sample sample/GoalSeek "50-終章.txt"
 
-. ./venv/bin/activate
-python ./EasyNovelAssistant/src/easy_novel_assistant.py
+uv run --with-requirements ./EasyNovelAssistant/setup/res/requirements.txt python ./EasyNovelAssistant/src/easy_novel_assistant.py
 ```
 
 - [ ] **Step 5: Add README platform note**
@@ -1257,6 +1250,7 @@ In `README.md`, under "インストールと更新", add:
 ### 対応環境
 
 - Python 3.10 以上
+- uv
 - Windows 10/11: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.bat`
 - Linux x64: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh`
 - macOS Apple Silicon: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh`
