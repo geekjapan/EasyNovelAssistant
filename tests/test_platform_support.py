@@ -65,14 +65,25 @@ def test_windows_launch_command_uses_argument_list_without_shell(monkeypatch, tm
     monkeypatch.setattr(platform_support.subprocess, "CREATE_NEW_CONSOLE", 16, raising=False)
     monkeypatch.setattr(platform_support.subprocess, "Popen", popen)
 
-    result = support.launch_command(["C:/Tools/run.bat", "name & value"], cwd=tmp_path)
+    result = support.launch_command(["C:/Tools/run.exe", "name & value"], cwd=tmp_path)
 
     assert result == "process"
     popen.assert_called_once_with(
-        ["C:/Tools/run.bat", "name & value"],
+        ["C:/Tools/run.exe", "name & value"],
         cwd=tmp_path,
         creationflags=16,
     )
+
+
+def test_windows_launch_command_rejects_batch_scripts(monkeypatch):
+    support = PlatformSupport(PlatformInfo("win32", "AMD64"))
+    popen = Mock()
+    monkeypatch.setattr(platform_support.subprocess, "Popen", popen)
+
+    with pytest.raises(ValueError, match="batch scripts"):
+        support.launch_command(["C:/Tools/run.bat"])
+
+    popen.assert_not_called()
 
 
 def test_unix_launch_command_uses_direct_argument_list(monkeypatch, tmp_path):
@@ -97,6 +108,17 @@ def test_windows_run_script_file_returns_popen(monkeypatch, tmp_path):
 
     assert result == "process"
     popen.assert_called_once_with([str(script)], cwd=tmp_path, creationflags=16)
+
+
+def test_windows_run_script_file_rejects_cmd_metacharacters(monkeypatch):
+    support = PlatformSupport(PlatformInfo("win32", "AMD64"))
+    popen = Mock()
+    monkeypatch.setattr(platform_support.subprocess, "Popen", popen)
+
+    with pytest.raises(ValueError):
+        support.run_script_file("C:/bad&path/setup.bat")
+
+    popen.assert_not_called()
 
 
 def test_unix_run_script_file_returns_popen(monkeypatch, tmp_path):
