@@ -1,3 +1,4 @@
+import os
 from unittest.mock import Mock
 
 from kobold_cpp import KoboldCpp
@@ -109,8 +110,10 @@ def test_download_model_uses_curl_argv_without_shell(tmp_path, monkeypatch):
     kobold_dir = tmp_path / "KoboldCpp"
     ctx = DummyContext(tmp_path)
     run = Mock(return_value=Mock(returncode=0))
+    replace = Mock()
     monkeypatch.setattr(kobold_cpp.webbrowser, "open", Mock())
     monkeypatch.setattr(kobold_cpp.subprocess, "run", run)
+    monkeypatch.setattr(kobold_cpp.os, "replace", replace)
     kobold = KoboldCpp(
         ctx,
         platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
@@ -120,10 +123,46 @@ def test_download_model_uses_curl_argv_without_shell(tmp_path, monkeypatch):
     result = kobold.download_model("Modern")
 
     assert result is None
-    run.assert_called_once_with(
-        ["curl", "-k", "-L", "-O", "https://huggingface.co/example/modern/resolve/main/modern.gguf"],
-        cwd=str(kobold_dir),
+    run.assert_called_once()
+    cmd = run.call_args.args[0]
+    assert cmd[:4] == ["curl", "-k", "-L", "-f"]
+    assert "-O" not in cmd
+    assert cmd[-1] == "https://huggingface.co/example/modern/resolve/main/modern.gguf"
+    temp_path = cmd[cmd.index("-o") + 1]
+    assert os.path.dirname(temp_path) == str(kobold_dir)
+    assert os.path.basename(temp_path) != "modern.gguf"
+    run.assert_called_once_with(cmd, cwd=str(kobold_dir))
+    replace.assert_called_once_with(temp_path, str(kobold_dir / "modern.gguf"))
+
+
+def test_download_model_removes_temp_file_after_curl_failure(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    ctx = DummyContext(tmp_path)
+    temp_paths = []
+
+    def failed_run(cmd, cwd):
+        temp_path = cmd[cmd.index("-o") + 1]
+        temp_paths.append(temp_path)
+        assert cwd == str(kobold_dir)
+        assert "-f" in cmd
+        with open(temp_path, "w", encoding="utf-8") as f:
+            f.write("404 page")
+        return Mock(returncode=22)
+
+    monkeypatch.setattr(kobold_cpp.webbrowser, "open", Mock())
+    monkeypatch.setattr(kobold_cpp.subprocess, "run", failed_run)
+    kobold = KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
     )
+
+    result = kobold.download_model("Modern")
+
+    assert "Modern" in result
+    assert temp_paths
+    assert not os.path.exists(temp_paths[0])
+    assert not (kobold_dir / "modern.gguf").exists()
 
 
 def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):

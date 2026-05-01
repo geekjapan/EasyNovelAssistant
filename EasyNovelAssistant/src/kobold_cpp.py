@@ -2,6 +2,7 @@
 import os
 import shlex
 import subprocess
+import tempfile
 import webbrowser
 
 import requests
@@ -96,9 +97,26 @@ popd
         llm = self.ctx.llm[llm_name]
         webbrowser.open(llm["info_url"])
         for url in llm["urls"]:
-            curl_cmd = ["curl", "-k", "-L", "-O", url]
-            if subprocess.run(curl_cmd, cwd=self.kobold_cpp_dir).returncode != 0:
-                return f'{llm_name} のダウンロードに失敗しました。\n{" ".join(curl_cmd)}'
+            file_name = url.split("/")[-1]
+            final_path = os.path.join(self.kobold_cpp_dir, file_name)
+            with tempfile.NamedTemporaryFile(
+                prefix=f".{file_name}.",
+                suffix=".tmp",
+                dir=self.kobold_cpp_dir,
+                delete=False,
+            ) as temp_file:
+                temp_path = temp_file.name
+            curl_cmd = ["curl", "-k", "-L", "-f", "-o", temp_path, url]
+            try:
+                if subprocess.run(curl_cmd, cwd=self.kobold_cpp_dir).returncode != 0:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                    return f'{llm_name} のダウンロードに失敗しました。\n{" ".join(curl_cmd)}'
+                os.replace(temp_path, final_path)
+            except Exception:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                raise
         return None
 
     def get_kobold_cpp_executable(self):

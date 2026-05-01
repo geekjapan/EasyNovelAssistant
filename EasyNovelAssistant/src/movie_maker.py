@@ -25,6 +25,10 @@ class MovieMaker:
         escaped = str(path).replace("'", "'\\''")
         return f"file '{escaped}'\n"
 
+    def _ffmpeg_filter_single_quote_value(self, value):
+        escaped = str(value).replace("\\", "\\\\").replace("'", "\\'")
+        return f"'{escaped}'"
+
     def make(self):
         audio_image_sets = self._select_audio_image_sets()
         if len(audio_image_sets) == 0:
@@ -123,8 +127,8 @@ class MovieMaker:
         bat = """@echo off
 chcp 65001 > NUL
 pushd %~dp0
-set FFMPEG={ffmpeg}
-set FFPLAY={ffplay}
+set "FFMPEG={ffmpeg}"
+set "FFPLAY={ffplay}"
 
 """.format(
             ffmpeg=Path.ffmpeg, ffplay=Path.ffplay
@@ -161,7 +165,7 @@ set FFPLAY={ffplay}
                     if mov_subtitles:
                         vf += ", "
                 if mov_subtitles:
-                    vf += f"subtitles='{os.path.basename(subtitle_path)}'"
+                    vf += f"subtitles={self._ffmpeg_filter_single_quote_value(os.path.basename(subtitle_path))}"
                 vf += '" ^'
 
             af = ""
@@ -178,7 +182,7 @@ set FFPLAY={ffplay}
                 af += '" ^'
 
             bat += """echo "{i}: {serif}"
-%FFMPEG% -y -loglevel error ^
+"%FFMPEG%" -y -loglevel error ^
 -i "{audio_path}" ^
 -loop 1 -i "{image_path}" ^
 -vcodec libx264 ^
@@ -208,7 +212,7 @@ if %errorlevel% neq 0 ( pause & popd & exit /b 1)
             for part_path in part_paths:
                 f.write(f"file '{part_path}'\n")
 
-        bat += """%FFMPEG% -y -loglevel error ^
+        bat += """"%FFMPEG%" -y -loglevel error ^
 -f concat ^
 -safe 0 ^
 -i "{file_list_path}" ^
@@ -216,7 +220,7 @@ if %errorlevel% neq 0 ( pause & popd & exit /b 1)
 "{movie_path}"
 if %errorlevel% neq 0 ( pause & popd & exit /b 1)
 
-%FFPLAY% -loglevel error -autoexit -loop 3 "{movie_path}"
+"%FFPLAY%" -loglevel error -autoexit -loop 3 "{movie_path}"
 if %errorlevel% neq 0 ( pause & popd & exit /b 1)
 
 popd
@@ -255,7 +259,7 @@ popd
             if self.ctx["mov_resize"] > 0:
                 vf.append(f"scale='if(gt(a,1),{self.ctx['mov_resize']},-2)':'if(gt(a,1),-2,{self.ctx['mov_resize']})'")
             if self.ctx["mov_subtitles"]:
-                vf.append(f"subtitles='{os.path.basename(subtitle_path)}'")
+                vf.append(f"subtitles={self._ffmpeg_filter_single_quote_value(os.path.basename(subtitle_path))}")
             af = []
             if self.ctx["mov_volume_adjust"]:
                 af.append(f"volume={self.ctx['speech_volume'] / 100}")

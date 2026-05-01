@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from movie_maker import MovieMaker
+import movie_maker
 from platform_support import PlatformInfo, PlatformSupport
 
 
@@ -57,6 +58,27 @@ def test_prepare_writes_bat_on_windows(tmp_path, monkeypatch):
     assert "%FFMPEG%" in text
 
 
+def test_prepare_windows_quotes_ffmpeg_variables_with_space_paths(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    audio = tmp_path / "001-hello.wav"
+    image = tmp_path / "image.png"
+    audio.write_bytes(b"")
+    image.write_bytes(b"")
+    ffmpeg = tmp_path / "tools with spaces" / "ffmpeg.exe"
+    ffplay = tmp_path / "tools with spaces" / "ffplay.exe"
+    monkeypatch.setattr(movie_maker.Path, "ffmpeg", str(ffmpeg))
+    monkeypatch.setattr(movie_maker.Path, "ffplay", str(ffplay))
+    maker = MovieMaker(DummyContext(), platform_support=PlatformSupport(PlatformInfo("win32", "AMD64")))
+
+    script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
+
+    text = Path(script_path).read_text(encoding="utf-8")
+    assert f'set "FFMPEG={ffmpeg}"' in text
+    assert f'set "FFPLAY={ffplay}"' in text
+    assert '"%FFMPEG%" -y -loglevel error ^' in text
+    assert '"%FFPLAY%" -loglevel error -autoexit -loop 3' in text
+
+
 def test_prepare_quotes_unix_script_paths_and_concat_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     dangerous_dir = tmp_path / "space 日本 'quote $(touch pwned)"
@@ -87,6 +109,23 @@ def test_prepare_quotes_unix_script_paths_and_concat_file(tmp_path, monkeypatch)
     concat_text = (movie_path.parent / movie_path.stem / f"{movie_path.stem}.txt").read_text(encoding="utf-8")
     escaped_part_path = str(part_path).replace("'", "'\\''")
     assert concat_text == f"file '{escaped_part_path}'\n"
+
+
+def test_prepare_unix_escapes_subtitle_path_for_ffmpeg_filtergraph(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    audio = tmp_path / "001-Bob's line.wav"
+    image = tmp_path / "image.png"
+    audio.write_bytes(b"")
+    image.write_bytes(b"")
+    maker = MovieMaker(DummyContext(), platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")))
+
+    script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
+
+    script_text = Path(script_path).read_text(encoding="utf-8")
+    ffmpeg_line = next(line for line in script_text.splitlines() if " -vf " in line)
+    ffmpeg_args = shlex.split(ffmpeg_line)
+    vf_arg = ffmpeg_args[ffmpeg_args.index("-vf") + 1]
+    assert "subtitles='001-Bob\\'s line.srt'" in vf_arg
 
 
 def test_make_runs_generated_script_with_script_directory(tmp_path):
