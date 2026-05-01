@@ -59,6 +59,14 @@ def test_resolve_tool_returns_venv_path_when_tool_missing(tmp_path, monkeypatch)
     assert support.resolve_tool(tmp_path, "python") == str(tmp_path / "bin" / "python")
 
 
+def test_resolve_tool_falls_back_to_venv_path(tmp_path):
+    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+
+    resolved = support.resolve_tool(tmp_path, "definitely-not-installed-easy-novel-tool")
+
+    assert resolved.endswith("bin/definitely-not-installed-easy-novel-tool")
+
+
 def test_windows_launch_command_uses_argument_list_without_shell(monkeypatch, tmp_path):
     support = PlatformSupport(PlatformInfo("win32", "AMD64"))
     popen = Mock(return_value="process")

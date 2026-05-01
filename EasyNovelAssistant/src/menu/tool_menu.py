@@ -2,9 +2,9 @@
 import subprocess
 import tkinter as tk
 import webbrowser
-from sys import platform
 
 from path import Path
+from platform_support import PlatformSupport
 
 
 class ToolMenu:
@@ -12,6 +12,7 @@ class ToolMenu:
     def __init__(self, form, ctx):
         self.form = form
         self.ctx = ctx
+        self.platform = PlatformSupport()
 
         self.menu = tk.Menu(form.win, tearoff=False)
         self.form.menu_bar.add_cascade(label="ツール", menu=self.menu)
@@ -93,16 +94,12 @@ class ToolMenu:
             self.menu.add_command(label="つくよみちゃん 音声モデル", command=lambda: webbrowser.open(url))
 
     def _run_kobold_cpp(self, *args):
-        if platform == "win32":
-            command = ["start", "cmd", "/c"]
-            command.append(f"{Path.kobold_cpp_win} || pause")
-            subprocess.run(command, cwd=Path.kobold_cpp, shell=True)
-        else:
-            subprocess.Popen(f"{Path.kobold_cpp_linux}", cwd=Path.kobold_cpp, shell=True)
+        executable = self.platform.kobold_cpp_path(Path.kobold_cpp)
+        self.platform.launch_command([executable], cwd=Path.kobold_cpp)
 
     def _run_style_bert_vits2(self, bat, py):
-        if platform == "win32":
-            subprocess.run(["start", "cmd", "/c", f"{bat} || pause"], cwd=Path.style_bert_vits2, shell=True)
+        if self.platform.is_windows():
+            subprocess.run(["cmd", "/d", "/c", "start", "", "cmd", "/d", "/c", str(bat)], cwd=Path.style_bert_vits2)
         else:
-            python = os.path.join(Path.style_bert_vits2, "venv", "Scripts", "python")
-            subprocess.Popen(f"{python} {py}", cwd=Path.style_bert_vits2, shell=True)
+            python = self.platform.resolve_tool(os.path.join(Path.style_bert_vits2, "venv"), "python")
+            self.platform.launch_command([python] + py.split(), cwd=Path.style_bert_vits2)
