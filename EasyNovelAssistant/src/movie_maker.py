@@ -1,6 +1,6 @@
 ﻿import os
 import re
-import subprocess
+import shlex
 import time
 
 from path import Path
@@ -20,6 +20,10 @@ class MovieMaker:
         from tkinter import filedialog
 
         return filedialog
+
+    def _concat_file_line(self, path):
+        escaped = str(path).replace("'", "'\\''")
+        return f"file '{escaped}'\n"
 
     def make(self):
         audio_image_sets = self._select_audio_image_sets()
@@ -229,6 +233,7 @@ popd
         movie_name = os.path.basename(movie_path).split(".")[0]
         ffmpeg = self.platform.resolve_tool(Path.venv, "ffmpeg")
         ffplay = self.platform.resolve_tool(Path.venv, "ffplay")
+        quote = shlex.quote
         lines = ["#!/bin/sh", "set -eu", ""]
         subtitle_template = "1\n00:00:00,000 --> 90:00:00,000\n{serif}\n"
         part_paths = []
@@ -257,11 +262,11 @@ popd
             if self.ctx["mov_tempo_adjust"]:
                 af.append(f"atempo={self.ctx['speech_speed']}")
 
-            lines.append(f'echo "{i}: {serif}"')
+            lines.append(f"printf '%s\\n' {quote(f'{i}: {serif}')}")
             cmd = [
-                f'"{ffmpeg}"', "-y", "-loglevel", "error",
-                "-i", f'"{audio_path}"',
-                "-loop", "1", "-i", f'"{image_path}"',
+                quote(ffmpeg), "-y", "-loglevel", "error",
+                "-i", quote(audio_path),
+                "-loop", "1", "-i", quote(image_path),
                 "-vcodec", "libx264",
                 "-pix_fmt", "yuv420p",
                 "-acodec", "aac",
@@ -271,20 +276,20 @@ popd
                 "-shortest",
             ]
             if vf:
-                cmd.extend(["-vf", '"' + ", ".join(vf) + '"'])
+                cmd.extend(["-vf", quote(", ".join(vf))])
             if af:
-                cmd.extend(["-af", '"' + ", ".join(af) + '"'])
-            cmd.extend(["-crf", str(self.ctx["mov_crf"]), f'"{part_path}"'])
+                cmd.extend(["-af", quote(", ".join(af))])
+            cmd.extend(["-crf", str(self.ctx["mov_crf"]), quote(part_path)])
             lines.append(" ".join(cmd))
             lines.append("")
 
         file_list_path = os.path.join(assets_dir, f"{movie_name}.txt")
         with open(file_list_path, "w", encoding="utf-8") as f:
             for part_path in part_paths:
-                f.write(f"file '{part_path}'\n")
+                f.write(self._concat_file_line(part_path))
 
-        lines.append(f'"{ffmpeg}" -y -loglevel error -f concat -safe 0 -i "{file_list_path}" -c copy "{movie_path}"')
-        lines.append(f'"{ffplay}" -loglevel error -autoexit -loop 3 "{movie_path}"')
+        lines.append(f"{quote(ffmpeg)} -y -loglevel error -f concat -safe 0 -i {quote(file_list_path)} -c copy {quote(movie_path)}")
+        lines.append(f"{quote(ffplay)} -loglevel error -autoexit -loop 3 {quote(movie_path)}")
         script_path = os.path.join(assets_dir, f"{movie_name}.sh")
         with open(script_path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
