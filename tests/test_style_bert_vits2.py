@@ -1,5 +1,7 @@
-from pathlib import Path
+from unittest.mock import Mock
 
+import style_bert_vits2
+from path import Path as AppPath
 from platform_support import PlatformInfo, PlatformSupport
 from style_bert_vits2 import StyleBertVits2
 
@@ -15,19 +17,71 @@ class DummyContext(dict):
         )
 
 
-def test_style_bert_python_path_is_unix_bin_for_linux(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    style = StyleBertVits2(DummyContext(), platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")))
+def test_style_bert_python_path_is_unix_bin_for_linux(tmp_path):
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    style = StyleBertVits2(
+        DummyContext(),
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        style_bert_vits2_dir=style_dir,
+    )
 
     path = style.get_python_executable()
 
-    assert path.endswith("Style-Bert-VITS2/venv/bin/python")
+    assert path == str(style_dir / "venv" / "bin" / "python")
 
 
-def test_style_bert_python_path_is_windows_scripts_for_windows(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    style = StyleBertVits2(DummyContext(), platform_support=PlatformSupport(PlatformInfo("win32", "AMD64")))
+def test_style_bert_python_path_is_windows_scripts_for_windows(tmp_path):
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    style = StyleBertVits2(
+        DummyContext(),
+        platform_support=PlatformSupport(PlatformInfo("win32", "AMD64")),
+        style_bert_vits2_dir=style_dir,
+    )
 
     path = style.get_python_executable()
 
-    assert path.endswith("Style-Bert-VITS2/venv/Scripts/python.exe")
+    assert path == str(style_dir / "venv" / "Scripts" / "python.exe")
+
+
+def test_launch_server_on_unix_uses_platform_launch_command_with_cpu_arg(tmp_path):
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+    support.launch_command = Mock()
+    style = StyleBertVits2(DummyContext(), platform_support=support, style_bert_vits2_dir=style_dir)
+
+    style.launch_server()
+
+    support.launch_command.assert_called_once_with(
+        [str(style_dir / "venv" / "bin" / "python"), "server_fastapi.py", "--cpu"],
+        cwd=str(style_dir),
+    )
+
+
+def test_launch_server_on_windows_runs_cmd_without_shell_and_separate_cpu_arg(tmp_path, monkeypatch):
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    support = PlatformSupport(PlatformInfo("win32", "AMD64"))
+    run = Mock()
+    monkeypatch.setattr(style_bert_vits2.subprocess, "run", run)
+    style = StyleBertVits2(DummyContext(), platform_support=support, style_bert_vits2_dir=style_dir)
+
+    style.launch_server()
+
+    run.assert_called_once()
+    args, kwargs = run.call_args
+    command = args[0]
+    assert kwargs.get("shell") is not True
+    assert command == [
+        "cmd",
+        "/d",
+        "/c",
+        "start",
+        "",
+        "cmd",
+        "/d",
+        "/c",
+        str(AppPath.style_bert_vits2_run),
+        "--cpu",
+    ]
+    assert "--cpu" in command
+    assert f"{AppPath.style_bert_vits2_run} --cpu" not in command
+    assert all("|| pause" not in item for item in command)

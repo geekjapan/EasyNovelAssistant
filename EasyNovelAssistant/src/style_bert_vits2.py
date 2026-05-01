@@ -12,9 +12,10 @@ from scipy.io import wavfile
 
 
 class StyleBertVits2:
-    def __init__(self, ctx, platform_support=None):
+    def __init__(self, ctx, platform_support=None, style_bert_vits2_dir=None):
         self.ctx = ctx
         self.platform = platform_support or PlatformSupport()
+        self.style_bert_vits2_dir = str(style_bert_vits2_dir or Path.style_bert_vits2)
         self.base_url = f'http://{ctx["style_bert_vits2_host"]}:{ctx["style_bert_vits2_port"]}'
         self.models_url = f"{self.base_url}/models/info"
         self.voice_url = f"{self.base_url}/voice"
@@ -24,7 +25,7 @@ class StyleBertVits2:
         self.play_queue = JobQueue()
 
     def get_python_executable(self):
-        venv_dir = os.path.join(Path.style_bert_vits2, "venv")
+        venv_dir = os.path.join(self.style_bert_vits2_dir, "venv")
         return str(self.platform.venv_tool_path(venv_dir, "python"))
 
     def install(self):
@@ -38,14 +39,16 @@ class StyleBertVits2:
         self._run_bat(Path.style_bert_vits2_run, "Style-Bert-VITS2 読み上げサーバー")
 
     def _run_bat(self, command, title):
-        arg = "" if self.ctx["style_bert_vits2_gpu"] else " --cpu"
         if self.platform.is_windows():
-            subprocess.run(["cmd", "/c", "start", title, "cmd", "/c", f"{command}{arg} || pause"], shell=True)
+            command_args = ["cmd", "/d", "/c", "start", "", "cmd", "/d", "/c", str(command)]
+            if not self.ctx["style_bert_vits2_gpu"]:
+                command_args.append("--cpu")
+            subprocess.run(command_args)
         else:
             python = self.get_python_executable()
             self.platform.launch_command(
                 [python, "server_fastapi.py"] + ([] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]),
-                cwd=Path.style_bert_vits2,
+                cwd=self.style_bert_vits2_dir,
             )
 
     def get_models(self):
