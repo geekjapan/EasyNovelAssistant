@@ -5,13 +5,15 @@ import time
 from tkinter import filedialog
 
 from path import Path
+from platform_support import PlatformSupport
 
 
 class MovieMaker:
     _SERIF_REGEX = re.compile(r"^[\d_]*-(.+)")
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, platform_support=None):
         self.ctx = ctx
+        self.platform = platform_support or PlatformSupport()
         self.audio_dir = None
         self.image_dir = ""
 
@@ -28,7 +30,7 @@ class MovieMaker:
         if bat_path is None:
             return False
 
-        subprocess.run(["start", "cmd", "/c", f"{bat_path} || pause"], shell=True, cwd=os.path.dirname(bat_path))
+        self.platform.run_script_file(bat_path, cwd=os.path.dirname(bat_path))
         return True
 
     def _select_audio_image_sets(self):
@@ -102,6 +104,12 @@ class MovieMaker:
         assets_dir = os.path.join(os.path.dirname(movie_path), movie_name)
         os.makedirs(assets_dir, exist_ok=True)
 
+        if self.platform.is_windows():
+            return self._prepare_windows(audio_image_sets, movie_path, assets_dir)
+        return self._prepare_unix(audio_image_sets, movie_path, assets_dir)
+
+    def _prepare_windows(self, audio_image_sets, movie_path, assets_dir):
+        movie_name = os.path.basename(movie_path).split(".")[0]
         bat = """@echo off
 chcp 65001 > NUL
 pushd %~dp0
@@ -210,3 +218,69 @@ popd
         with open(bat_path, "w", encoding="utf-8") as f:
             f.write(bat)
         return bat_path
+
+    def _prepare_unix(self, audio_image_sets, movie_path, assets_dir):
+        movie_name = os.path.basename(movie_path).split(".")[0]
+        ffmpeg = self.platform.resolve_tool(Path.venv, "ffmpeg")
+        ffplay = self.platform.resolve_tool(Path.venv, "ffplay")
+        lines = ["#!/bin/sh", "set -eu", ""]
+        subtitle_template = "1\n00:00:00,000 --> 90:00:00,000\n{serif}\n"
+        part_paths = []
+        for i, audio_image_set in enumerate(audio_image_sets):
+            audio_path = audio_image_set["audio_path"]
+            image_path = audio_image_set["image_path"]
+            audio_name, _ext = os.path.splitext(os.path.basename(audio_path))
+            serif = audio_name
+            m = self._SERIF_REGEX.match(audio_name)
+            if m is not None:
+                serif = m.group(1)
+            subtitle_path = os.path.join(assets_dir, f"{audio_name}.srt")
+            with open(subtitle_path, "w", encoding="utf-8-sig") as f:
+                f.write(subtitle_template.format(serif=serif))
+
+            part_path = os.path.join(assets_dir, f"{audio_name}.mp4")
+            part_paths.append(part_path)
+            vf = []
+            if self.ctx["mov_resize"] > 0:
+                vf.append(f"scale='if(gt(a,1),{self.ctx['mov_resize']},-2)':'if(gt(a,1),-2,{self.ctx['mov_resize']})'")
+            if self.ctx["mov_subtitles"]:
+                vf.append(f"subtitles='{os.path.basename(subtitle_path)}'")
+            af = []
+            if self.ctx["mov_volume_adjust"]:
+                af.append(f"volume={self.ctx['speech_volume'] / 100}")
+            if self.ctx["mov_tempo_adjust"]:
+                af.append(f"atempo={self.ctx['speech_speed']}")
+
+            lines.append(f'echo "{i}: {serif}"')
+            cmd = [
+                f'"{ffmpeg}"', "-y", "-loglevel", "error",
+                "-i", f'"{audio_path}"',
+                "-loop", "1", "-i", f'"{image_path}"',
+                "-vcodec", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-acodec", "aac",
+                "-ab", "128k",
+                "-ac", "1",
+                "-ar", "44100",
+                "-shortest",
+            ]
+            if vf:
+                cmd.extend(["-vf", '"' + ", ".join(vf) + '"'])
+            if af:
+                cmd.extend(["-af", '"' + ", ".join(af) + '"'])
+            cmd.extend(["-crf", str(self.ctx["mov_crf"]), f'"{part_path}"'])
+            lines.append(" ".join(cmd))
+            lines.append("")
+
+        file_list_path = os.path.join(assets_dir, f"{movie_name}.txt")
+        with open(file_list_path, "w", encoding="utf-8") as f:
+            for part_path in part_paths:
+                f.write(f"file '{part_path}'\n")
+
+        lines.append(f'"{ffmpeg}" -y -loglevel error -f concat -safe 0 -i "{file_list_path}" -c copy "{movie_path}"')
+        lines.append(f'"{ffplay}" -loglevel error -autoexit -loop 3 "{movie_path}"')
+        script_path = os.path.join(assets_dir, f"{movie_name}.sh")
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        os.chmod(script_path, 0o755)
+        return script_path
