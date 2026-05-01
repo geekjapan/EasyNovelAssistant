@@ -2,18 +2,19 @@
 import os
 import subprocess
 import time
-from sys import platform
 
 import numpy as np
 import requests
 from job_queue import JobQueue
 from path import Path
+from platform_support import PlatformSupport
 from scipy.io import wavfile
 
 
 class StyleBertVits2:
-    def __init__(self, ctx):
+    def __init__(self, ctx, platform_support=None):
         self.ctx = ctx
+        self.platform = platform_support or PlatformSupport()
         self.base_url = f'http://{ctx["style_bert_vits2_host"]}:{ctx["style_bert_vits2_port"]}'
         self.models_url = f"{self.base_url}/models/info"
         self.voice_url = f"{self.base_url}/voice"
@@ -22,8 +23,12 @@ class StyleBertVits2:
         self.gen_queue = JobQueue()
         self.play_queue = JobQueue()
 
+    def get_python_executable(self):
+        venv_dir = os.path.join(Path.style_bert_vits2, "venv")
+        return str(self.platform.venv_tool_path(venv_dir, "python"))
+
     def install(self):
-        if platform == "win32":
+        if self.platform.is_windows():
             self._run_bat(Path.style_bert_vits2_setup, "Style-Bert-VITS2 インストール")
         else:
             msg = f"{Path.style_bert_vits2} に Style-Bert-VITS2 をインストールして、"
@@ -34,11 +39,14 @@ class StyleBertVits2:
 
     def _run_bat(self, command, title):
         arg = "" if self.ctx["style_bert_vits2_gpu"] else " --cpu"
-        if platform == "win32":
-            subprocess.run(["start", title, "cmd", "/c", f"{command}{arg} || pause"], shell=True)
+        if self.platform.is_windows():
+            subprocess.run(["cmd", "/c", "start", title, "cmd", "/c", f"{command}{arg} || pause"], shell=True)
         else:
-            python = os.path.join(Path.style_bert_vits2, "venv", "Scripts", "python")
-            subprocess.Popen(f"{python} server_fastapi.py{arg}", cwd=Path.style_bert_vits2, shell=True)
+            python = self.get_python_executable()
+            self.platform.launch_command(
+                [python, "server_fastapi.py"] + ([] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]),
+                cwd=Path.style_bert_vits2,
+            )
 
     def get_models(self):
         try:
