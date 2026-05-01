@@ -80,7 +80,16 @@
 
 ## インストールと更新
 
-インストールや更新で困ったことが起きたら、[こちら](https://github.com/Zuntan03/EasyNovelAssistant/wiki/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%81%A8%E6%9B%B4%E6%96%B0) を参照してください。  
+### 対応環境
+
+- Python 3.10 以上
+- Windows 10/11: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.bat`
+- Linux x64: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh`
+- macOS Apple Silicon: `EasyNovelAssistant/setup/Setup-EasyNovelAssistant.sh`
+
+KoboldCpp は起動 OS に応じて `koboldcpp.exe`、`koboldcpp-linux-x64`、`koboldcpp-mac-arm64` を利用します。macOS Intel は KoboldCpp のバイナリを手動で用意してください。
+
+インストールや更新で困ったことが起きたら、[こちら](https://github.com/Zuntan03/EasyNovelAssistant/wiki/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%81%A8%E6%9B%B4%E6%96%B0) を参照してください。
 
 1. [`Install-EasyNovelAssistant.bat`](https://github.com/Zuntan03/EasyNovelAssistant/raw/main/EasyNovelAssistant/setup/Install-EasyNovelAssistant.bat?v=2) を右クリックして `名前をつけて保存` で、インストール先フォルダ（**英数字のパスで空白や日本語を含まない**）にダウンロードして実行します。
 	- **`WindowsによってPCが保護されました` と表示されたら、`詳細表示` から `実行` します。**
