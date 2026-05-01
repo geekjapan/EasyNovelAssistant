@@ -11,6 +11,19 @@ if [ ! -d "venv" ]; then
     "$PYTHON" -m venv venv
 fi
 
+download_file() {
+    url="$1"
+    output="$2"
+    tmp="$output.tmp"
+    rm -f "$tmp"
+    if curl -fL -o "$tmp" "$url"; then
+        mv "$tmp" "$output"
+    else
+        rm -f "$tmp"
+        return 1
+    fi
+}
+
 . venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r ./EasyNovelAssistant/setup/res/requirements.txt
@@ -23,8 +36,13 @@ MACHINE_NAME="$(uname -m)"
 KOBOLD_BIN=""
 
 case "$OS_NAME:$MACHINE_NAME" in
-    Linux:*)
+    Linux:x86_64|Linux:amd64)
         KOBOLD_BIN="koboldcpp-linux-x64"
+        ;;
+    Linux:*)
+        echo "Unsupported Linux architecture for default KoboldCpp binary: $MACHINE_NAME"
+        echo "Install KoboldCpp manually into $(pwd) and configure a custom binary if needed."
+        exit 1
         ;;
     Darwin:arm64|Darwin:aarch64)
         KOBOLD_BIN="koboldcpp-mac-arm64"
@@ -41,15 +59,13 @@ case "$OS_NAME:$MACHINE_NAME" in
 esac
 
 if [ ! -e "$KOBOLD_BIN" ]; then
-    curl -fLO "https://github.com/LostRuins/koboldcpp/releases/latest/download/$KOBOLD_BIN"
+    download_file "https://github.com/LostRuins/koboldcpp/releases/latest/download/$KOBOLD_BIN" "$KOBOLD_BIN"
     chmod +x "$KOBOLD_BIN"
 fi
 
 if [ ! -e "Vecteus-v1-IQ4_XS.gguf" ]; then
-    curl -fLO https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1_IQ4_XS.gguf || {
-        rm -f Vecteus-v1_IQ4_XS.gguf
-        curl -fLO https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf
-    }
+    download_file https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1_IQ4_XS.gguf Vecteus-v1_IQ4_XS.gguf || \
+    download_file https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf Vecteus-v1_IQ4_XS.gguf
 fi
 
 cd -
