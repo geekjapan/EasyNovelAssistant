@@ -1,8 +1,4 @@
-import sys
-import types
 from pathlib import Path
-
-sys.modules.setdefault("tkinter", types.SimpleNamespace(filedialog=types.SimpleNamespace()))
 
 from movie_maker import MovieMaker
 from platform_support import PlatformInfo, PlatformSupport
@@ -35,6 +31,7 @@ def test_prepare_writes_shell_script_on_linux(tmp_path, monkeypatch):
     script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
 
     assert script_path.endswith(".sh")
+    assert Path(script_path).stat().st_mode & 0o111
     text = Path(script_path).read_text(encoding="utf-8")
     assert "#!/bin/sh" in text
     assert "ffmpeg" in text

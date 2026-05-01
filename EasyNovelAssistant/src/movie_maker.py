@@ -2,7 +2,6 @@
 import re
 import subprocess
 import time
-from tkinter import filedialog
 
 from path import Path
 from platform_support import PlatformSupport
@@ -16,6 +15,11 @@ class MovieMaker:
         self.platform = platform_support or PlatformSupport()
         self.audio_dir = None
         self.image_dir = ""
+
+    def _filedialog(self):
+        from tkinter import filedialog
+
+        return filedialog
 
     def make(self):
         audio_image_sets = self._select_audio_image_sets()
@@ -34,6 +38,7 @@ class MovieMaker:
         return True
 
     def _select_audio_image_sets(self):
+        filedialog = self._filedialog()
         win = self.ctx.form.win
         result = []
 
@@ -80,6 +85,7 @@ class MovieMaker:
         return result
 
     def _select_movie_path(self):
+        filedialog = self._filedialog()
         movie_dir = self.ctx["mov_movie_dir"]
         if movie_dir == "":
             movie_dir = Path.movie
