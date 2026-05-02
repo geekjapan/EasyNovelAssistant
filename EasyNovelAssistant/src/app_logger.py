@@ -28,7 +28,7 @@ def _write_jsonl(path, record):
     with _lock:
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "a", encoding="utf-8-sig") as f:
+            with open(path, "a", encoding="utf-8") as f:
                 json.dump(record, f, ensure_ascii=False)
                 f.write("\n")
         except Exception:

@@ -60,3 +60,15 @@ def test_app_logger_swallows_write_failures(monkeypatch):
     monkeypatch.setattr(app_logger, "open", Mock(side_effect=OSError("disk full")), raising=False)
 
     app_logger.log_error("logger", "should not raise")
+
+
+def test_app_logger_writes_jsonl_without_bom(tmp_path, monkeypatch):
+    info_log = tmp_path / "info.log"
+    monkeypatch.setattr(app_logger.Path, "info_log", str(info_log))
+
+    app_logger.log_info("logger", "first")
+    app_logger.log_info("logger", "second")
+
+    data = info_log.read_bytes()
+    assert b"\xef\xbb\xbf" not in data
+    assert len(read_jsonl(info_log)) == 2
