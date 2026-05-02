@@ -139,14 +139,19 @@ def download_first_available(urls, output_path):
 def read_json_file(path, default=None):
     try:
         return json.loads(Path(path).read_text(encoding="utf-8"))
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
         return default
 
 
 def write_json_file(path, data):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp_path = path.with_name(f"{path.name}.tmp")
+    try:
+        tmp_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def ensure_app_dependencies():

@@ -243,6 +243,40 @@ def test_setup_python_script_style_bert_initialize_current_checks_state_and_mark
     assert module.style_bert_initialize_is_current() is False
 
 
+def test_setup_python_script_read_json_file_returns_default_for_corrupt_json(tmp_path):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_json_read", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    state = tmp_path / "setup-state.json"
+    state.write_text("{broken", encoding="utf-8")
+
+    assert module.read_json_file(state, default={"style_bert_head": None}) == {"style_bert_head": None}
+
+
+def test_setup_python_script_write_json_file_replaces_state_atomically(tmp_path, monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_json_write", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    state = tmp_path / "setup-state.json"
+    state.write_text('{"style_bert_head": "old"}\n', encoding="utf-8")
+    replace_calls = []
+    real_replace = module.os.replace
+
+    def replace(tmp_path, final_path):
+        replace_calls.append((tmp_path, final_path))
+        real_replace(tmp_path, final_path)
+
+    monkeypatch.setattr(module.os, "replace", replace)
+
+    module.write_json_file(state, {"style_bert_head": "new"})
+
+    assert replace_calls == [(state.with_name("setup-state.json.tmp"), state)]
+    assert module.read_json_file(state) == {"style_bert_head": "new"}
+    assert not state.with_name("setup-state.json.tmp").exists()
+
+
 def test_setup_python_script_skips_style_bert_initialize_when_current(tmp_path, monkeypatch):
     script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
     spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_init_skip", script)
