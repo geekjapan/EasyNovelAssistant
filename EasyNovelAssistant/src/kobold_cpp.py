@@ -269,7 +269,6 @@ popd
         app_logger.log_operation(
             "kobold_cpp",
             "generate_request",
-            prompt=text,
             llm_name=self.ctx["llm_name"],
             max_length=args["max_length"],
             max_context_length=args["max_context_length"],

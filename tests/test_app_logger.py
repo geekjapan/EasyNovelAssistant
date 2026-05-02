@@ -1,4 +1,5 @@
 import json
+from unittest.mock import Mock
 
 import app_logger
 
@@ -53,3 +54,9 @@ def test_app_logger_respects_config_flags(tmp_path, monkeypatch):
     app_logger.configure({})
 
     assert not info_log.exists()
+
+
+def test_app_logger_swallows_write_failures(monkeypatch):
+    monkeypatch.setattr(app_logger, "open", Mock(side_effect=OSError("disk full")), raising=False)
+
+    app_logger.log_error("logger", "should not raise")

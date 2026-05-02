@@ -250,12 +250,14 @@ def test_launch_server_launches_built_command_with_kobold_dir(tmp_path, monkeypa
 def test_generate_posts_payload_and_returns_text(tmp_path, monkeypatch):
     kobold_dir = tmp_path / "KoboldCpp"
     log_path = tmp_path / "generated.jsonl"
+    operation_log_path = tmp_path / "operations.log"
     ctx = DummyContext(tmp_path)
     response = Mock(status_code=200)
     response.json.return_value = {"results": [{"text": " world"}]}
     post = Mock(return_value=response)
     monkeypatch.setattr(kobold_cpp.requests, "post", post)
     monkeypatch.setattr(kobold_cpp.app_logger.Path, "generated_log", str(log_path))
+    monkeypatch.setattr(kobold_cpp.app_logger.Path, "operation_log", str(operation_log_path))
     kobold = KoboldCpp(
         ctx,
         platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
@@ -274,6 +276,9 @@ def test_generate_posts_payload_and_returns_text(tmp_path, monkeypatch):
     assert logged["event"] == "generated_text"
     assert logged["prompt"] == "hello"
     assert logged["result"] == " world"
+    operation = json.loads(operation_log_path.read_text(encoding="utf-8-sig").splitlines()[0])
+    assert operation["event"] == "generate_request"
+    assert "prompt" not in operation
 
 
 def test_build_launch_args_shlex_splits_user_koboldcpp_arg(tmp_path):

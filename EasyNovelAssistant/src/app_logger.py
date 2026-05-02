@@ -1,5 +1,6 @@
 ﻿import json
 import os
+import threading
 import time
 import traceback
 
@@ -7,6 +8,7 @@ from path import Path
 
 
 _config = {}
+_lock = threading.Lock()
 
 
 def configure(config):
@@ -23,10 +25,14 @@ def _timestamp():
 
 
 def _write_jsonl(path, record):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "a", encoding="utf-8-sig") as f:
-        json.dump(record, f, ensure_ascii=False)
-        f.write("\n")
+    with _lock:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "a", encoding="utf-8-sig") as f:
+                json.dump(record, f, ensure_ascii=False)
+                f.write("\n")
+        except Exception:
+            pass
 
 
 def _base_record(component, event, level=None, message=None):
