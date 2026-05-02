@@ -47,7 +47,6 @@ class HelpMenu:
             reference_menu.add_command(label=label, command=cmd)
 
         reference_menu.add_separator()
-        self._show_hf_url(reference_menu, "kaunista/kaunista-style-bert-vits2-models")
         self._show_hf_url(reference_menu, "RinneAi/Rinne_Style-Bert-VITS2")
 
         self.menu.add_separator()

@@ -39,6 +39,9 @@ class KoboldCpp:
         self.abort_url = f"{self.base_url}/api/extra/abort"
 
         self.model_name = None
+        self.server_process = None
+        self.server_model_file_name = None
+        self.server_gpu_layer = None
         normalize_llm_map(ctx.llm)
         os.makedirs(self.kobold_cpp_dir, exist_ok=True)
 
@@ -180,19 +183,80 @@ class KoboldCpp:
         args.update(llm.get("generate_args", {}))
         return args
 
-    def launch_server(self):
-        loaded_model = self.get_model()
-        if loaded_model is not None:
-            return f"{loaded_model} がすでにロード済みです。\nモデルサーバーのコマンドプロンプトを閉じてからロードしてください。"
-
+    def ensure_valid_llm_selection(self):
         if self.ctx["llm_name"] not in self.ctx.llm:
             self.ctx["llm_name"] = "[元祖] LightChatAssistant-TypeB-2x7B-IQ4_XS"
             self.ctx["llm_gpu_layer"] = 0
 
+    def is_managed_server_running(self):
+        return self.server_process is not None and self.server_process.poll() is None
+
+    def stop_server(self, timeout=10):
+        if not self.is_managed_server_running():
+            self.server_process = None
+            self.server_model_file_name = None
+            self.server_gpu_layer = None
+            return False
+        app_logger.log_operation("kobold_cpp", "stop_server", pid=getattr(self.server_process, "pid", None))
+        self.server_process.terminate()
+        try:
+            self.server_process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            app_logger.log_error("kobold_cpp", "server did not stop in time; killing", event="stop_server_timeout")
+            self.server_process.kill()
+            self.server_process.wait(timeout=timeout)
+        self.server_process = None
+        self.server_model_file_name = None
+        self.server_gpu_layer = None
+        return True
+
+    def wait_until_model_unloaded(self, timeout=15, interval=0.5):
+        deadline = time.perf_counter() + timeout
+        while time.perf_counter() < deadline:
+            if self.get_model() is None:
+                return True
+            time.sleep(interval)
+        return self.get_model() is None
+
+    def launch_server(self):
+        self.ensure_valid_llm_selection()
         llm_name = self.ctx["llm_name"]
         gpu_layer = self.ctx["llm_gpu_layer"]
-
         llm = self.ctx.llm[llm_name]
+        target_file_name = llm["file_name"]
+
+        loaded_model = self.get_model()
+        if loaded_model is not None:
+            if loaded_model == target_file_name:
+                if self.is_managed_server_running() and self.server_gpu_layer != gpu_layer:
+                    if self.stop_server() and self.wait_until_model_unloaded():
+                        app_logger.log_operation(
+                            "kobold_cpp",
+                            "reload_model_for_gpu_layer",
+                            model=loaded_model,
+                            gpu_layer=gpu_layer,
+                        )
+                    else:
+                        return (
+                            f"{loaded_model} がすでにロード済みです。\n"
+                            f"GPUレイヤーを L{gpu_layer} に変更するには、モデルサーバーのコマンドプロンプトを閉じてください。"
+                        )
+                else:
+                    app_logger.log_operation("kobold_cpp", "model_already_loaded", llm_name=llm_name, model=loaded_model)
+                    return None
+            elif self.stop_server() and self.wait_until_model_unloaded():
+                app_logger.log_operation(
+                    "kobold_cpp",
+                    "switch_model_after_stop",
+                    previous_model=loaded_model,
+                    next_model=target_file_name,
+                )
+            else:
+                return (
+                    f"{loaded_model} がすでにロード済みです。\n"
+                    f"{target_file_name} に切り替えるには、モデルサーバーのコマンドプロンプトを閉じてください。"
+                )
+
         llm_path = os.path.join(self.kobold_cpp_dir, llm["file_name"])
 
         if not os.path.exists(llm_path):
@@ -212,7 +276,9 @@ class KoboldCpp:
             command=command,
             cwd=self.kobold_cpp_dir,
         )
-        self.platform.launch_command(command, cwd=self.kobold_cpp_dir)
+        self.server_process = self.platform.launch_command(command, cwd=self.kobold_cpp_dir)
+        self.server_model_file_name = target_file_name
+        self.server_gpu_layer = gpu_layer
         return None
 
     def generate(self, text):

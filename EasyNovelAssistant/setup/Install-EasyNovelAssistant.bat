@@ -36,7 +36,6 @@ if not exist %APP_NAME%\ (
 	echo https://github.com/BtbN/FFmpeg-Builds
 	echo.
 	echo https://huggingface.co/mmnga/Vecteus-v1-gguf
-	echo https://huggingface.co/kaunista/kaunista-style-bert-vits2-models
 	echo https://huggingface.co/RinneAi/Rinne_Style-Bert-VITS2
 	echo.
 	echo "未成年の方はインストール禁止です。"

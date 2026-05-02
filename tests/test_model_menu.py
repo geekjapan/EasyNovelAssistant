@@ -10,6 +10,37 @@ sys.modules.setdefault(
 from menu import model_menu
 
 
+def test_stop_model_server_shows_success_when_managed_server_stopped(monkeypatch):
+    shown = {}
+    monkeypatch.setattr(model_menu.messagebox, "showinfo", lambda title, message, parent=None: shown.update(title=title))
+    kobold = Mock()
+    kobold.stop_server.return_value = True
+    kobold.get_model.return_value = None
+    menu = object.__new__(model_menu.ModelMenu)
+    menu.form = SimpleNamespace(win=None)
+    menu.ctx = SimpleNamespace(kobold_cpp=kobold)
+
+    menu.stop_model_server()
+
+    assert shown["title"] == "モデルサーバー停止"
+    kobold.stop_server.assert_called_once_with()
+
+
+def test_stop_model_server_warns_when_external_model_still_loaded(monkeypatch):
+    shown = {}
+    monkeypatch.setattr(model_menu.messagebox, "showerror", lambda title, message, parent=None: shown.update(message=message))
+    kobold = Mock()
+    kobold.stop_server.return_value = False
+    kobold.get_model.return_value = "modern.gguf"
+    menu = object.__new__(model_menu.ModelMenu)
+    menu.form = SimpleNamespace(win=None)
+    menu.ctx = SimpleNamespace(kobold_cpp=kobold)
+
+    menu.stop_model_server()
+
+    assert "modern.gguf がまだロード済みです" in shown["message"]
+
+
 def test_add_huggingface_model_resolves_variant_and_updates_context(monkeypatch, tmp_path):
     llm_path = tmp_path / "llm.json"
     monkeypatch.setattr(model_menu.Path, "llm", llm_path)

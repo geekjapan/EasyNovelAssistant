@@ -9,6 +9,7 @@
 # ///
 
 import importlib
+import json
 import os
 import platform
 import shutil
@@ -35,6 +36,7 @@ KOBOLD_CPP_DIR = ROOT / "KoboldCpp"
 STYLE_BERT_VITS2_DIR = ROOT / "Style-Bert-VITS2"
 STYLE_BERT_VITS2_CONFIG = STYLE_BERT_VITS2_DIR / "config.yml"
 STYLE_BERT_VITS2_CONFIG_SOURCE = ROOT / "EasyNovelAssistant" / "setup" / "res" / "config.yml"
+STYLE_BERT_SETUP_STATE = STYLE_BERT_VITS2_DIR / ".easy_novel_assistant" / "setup-state.json"
 SETUP_LIB_DIR = ROOT / "EasyNovelAssistant" / "setup" / "lib"
 FFMPEG_DIR = SETUP_LIB_DIR / "ffmpeg-master-latest-win64-gpl"
 FFMPEG_ZIP = SETUP_LIB_DIR / "ffmpeg.zip"
@@ -46,13 +48,43 @@ VECTEUS_URLS = [
 ]
 STYLE_BERT_MODELS = [
     ("RinneAi/Rinne_Style-Bert-VITS2", "model_assets/Rinne", "Rinne", "Rinne"),
-    ("kaunista/kaunista-style-bert-vits2-models", "Anneli", "Anneli", "Anneli_e116_s32000"),
-    ("kaunista/kaunista-style-bert-vits2-models", "Anneli-nsfw", "Anneli-nsfw", "Anneli-nsfw_e300_s5100"),
+]
+STYLE_BERT_INITIALIZE_MARKERS = [
+    "configs/paths.yml",
+    "slm/wavlm-base-plus/pytorch_model.bin",
+    "pretrained/G_0.safetensors",
+    "pretrained/D_0.safetensors",
+    "pretrained/DUR_0.safetensors",
+    "pretrained_jp_extra/G_0.safetensors",
+    "pretrained_jp_extra/D_0.safetensors",
+    "pretrained_jp_extra/WD_0.safetensors",
+    "model_assets/jvnv-F1-jp/config.json",
+    "model_assets/jvnv-F1-jp/jvnv-F1-jp_e160_s14000.safetensors",
+    "model_assets/jvnv-F1-jp/style_vectors.npy",
+    "model_assets/jvnv-F2-jp/config.json",
+    "model_assets/jvnv-F2-jp/jvnv-F2_e166_s20000.safetensors",
+    "model_assets/jvnv-F2-jp/style_vectors.npy",
+    "model_assets/jvnv-M1-jp/config.json",
+    "model_assets/jvnv-M1-jp/jvnv-M1-jp_e158_s14000.safetensors",
+    "model_assets/jvnv-M1-jp/style_vectors.npy",
+    "model_assets/jvnv-M2-jp/config.json",
+    "model_assets/jvnv-M2-jp/jvnv-M2-jp_e159_s17000.safetensors",
+    "model_assets/jvnv-M2-jp/style_vectors.npy",
+    "model_assets/koharune-ami/config.json",
+    "model_assets/koharune-ami/koharune-ami.safetensors",
+    "model_assets/koharune-ami/style_vectors.npy",
+    "model_assets/amitaro/config.json",
+    "model_assets/amitaro/amitaro.safetensors",
+    "model_assets/amitaro/style_vectors.npy",
 ]
 
 
 def resolve_uv_command():
     return os.environ.get("UV_CMD") or shutil.which("uv") or "uv"
+
+
+def should_update_style_bert_repo():
+    return os.environ.get("ENA_UPDATE_STYLE_BERT", "").lower() in ("1", "true", "yes")
 
 
 def style_bert_uv_dependencies(system=None):
@@ -104,6 +136,24 @@ def download_first_available(urls, output_path):
         raise last_error
 
 
+def read_json_file(path, default=None):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return default
+
+
+def write_json_file(path, data):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f"{path.name}.tmp")
+    try:
+        tmp_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 def ensure_app_dependencies():
     missing = []
     for module_name in ("requests", "tkinter"):
@@ -152,12 +202,59 @@ def style_bert_uv_command(script_name, *args):
 
 def ensure_style_bert_repo():
     if STYLE_BERT_VITS2_DIR.exists():
-        subprocess.run(["git", "-C", str(STYLE_BERT_VITS2_DIR), "pull"], check=True)
+        if not (STYLE_BERT_VITS2_DIR / ".git").exists():
+            raise RuntimeError(f"Style-Bert-VITS2 exists but is not a git repository: {STYLE_BERT_VITS2_DIR}")
+        if should_update_style_bert_repo():
+            subprocess.run(["git", "-C", str(STYLE_BERT_VITS2_DIR), "pull", "--ff-only"], check=True)
+        else:
+            print(f"Using existing Style-Bert-VITS2: {STYLE_BERT_VITS2_DIR}")
     else:
         subprocess.run(
             ["git", "clone", "https://github.com/litagin02/Style-Bert-VITS2", str(STYLE_BERT_VITS2_DIR)],
             check=True,
         )
+
+
+def style_bert_repo_head():
+    result = subprocess.run(
+        ["git", "-C", str(STYLE_BERT_VITS2_DIR), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def style_bert_marker_paths():
+    markers = list(STYLE_BERT_INITIALIZE_MARKERS)
+    missing_manifest = object()
+    bert_models = read_json_file(STYLE_BERT_VITS2_DIR / "bert" / "bert_models.json", default=missing_manifest)
+    if bert_models is missing_manifest or not isinstance(bert_models, dict):
+        return None
+    for model_name, model in bert_models.items():
+        for file_name in model.get("files", []):
+            markers.append(str(Path("bert") / model_name / file_name))
+    return [STYLE_BERT_VITS2_DIR / marker for marker in markers]
+
+
+def style_bert_initialize_is_current():
+    state = read_json_file(STYLE_BERT_SETUP_STATE, default={}) or {}
+    if state.get("style_bert_head") != style_bert_repo_head():
+        return False
+    marker_paths = style_bert_marker_paths()
+    if marker_paths is None:
+        return False
+    return all(path.exists() for path in marker_paths)
+
+
+def record_style_bert_initialize_complete():
+    write_json_file(
+        STYLE_BERT_SETUP_STATE,
+        {
+            "style_bert_head": style_bert_repo_head(),
+            "initialize_script": "initialize.py",
+        },
+    )
 
 
 def ensure_windows_ffmpeg_bundle():
@@ -198,7 +295,11 @@ def ensure_style_bert_model(repo_id, model_dir, model_name, model_safetensors):
 
 def ensure_style_bert_assets():
     ensure_windows_ffmpeg_bundle()
-    subprocess.run(style_bert_uv_command("initialize.py"), cwd=str(STYLE_BERT_VITS2_DIR), check=True)
+    if style_bert_initialize_is_current():
+        print("Style-Bert-VITS2 initialize already complete")
+    else:
+        subprocess.run(style_bert_uv_command("initialize.py"), cwd=str(STYLE_BERT_VITS2_DIR), check=True)
+        record_style_bert_initialize_complete()
     for model in STYLE_BERT_MODELS:
         ensure_style_bert_model(*model)
     if not STYLE_BERT_VITS2_CONFIG.exists():
@@ -206,12 +307,10 @@ def ensure_style_bert_assets():
 
 
 def ensure_speech_engine():
-    if STYLE_BERT_VITS2_CONFIG.exists():
-        print(f"Style-Bert-VITS2 ready: {STYLE_BERT_VITS2_DIR}")
-        return
-    print("Installing Style-Bert-VITS2 speech engine")
+    print("Checking Style-Bert-VITS2 speech engine")
     ensure_style_bert_repo()
     ensure_style_bert_assets()
+    print(f"Style-Bert-VITS2 ready: {STYLE_BERT_VITS2_DIR}")
 
 
 def main():
