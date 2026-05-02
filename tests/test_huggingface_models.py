@@ -5,6 +5,7 @@ from huggingface_models import (
     build_gguf_llm_entry,
     gguf_siblings_from_api_payload,
     parse_hf_gguf_reference,
+    resolve_gguf_file_hint,
     save_custom_llm_entry,
 )
 
@@ -25,6 +26,15 @@ def test_parse_repo_id_accepts_pasted_huggingface_model_name():
 
     assert ref.repo_id == "example/Gemma-4-GGUF"
     assert ref.file_path is None
+    assert ref.url is None
+
+
+def test_parse_repo_id_accepts_colon_variant_hint():
+    ref = parse_hf_gguf_reference("example/Gemma-4-GGUF:i1-Q4_K_M")
+
+    assert ref.repo_id == "example/Gemma-4-GGUF"
+    assert ref.file_path is None
+    assert ref.file_hint == "i1-Q4_K_M"
     assert ref.url is None
 
 
@@ -63,6 +73,44 @@ def test_gguf_siblings_from_api_payload_returns_sorted_gguf_paths():
         "a/model.Q4_K_M.GGUF",
         "b/model.Q5_K_M.gguf",
     ]
+
+
+def test_resolve_gguf_file_hint_accepts_quant_suffix():
+    files = [
+        "gemma-4-31B-it-uncensored-heretic.i1-Q3_K_M.gguf",
+        "gemma-4-31B-it-uncensored-heretic.i1-Q4_K_M.gguf",
+        "gemma-4-31B-it-uncensored-heretic.i1-Q5_K_M.gguf",
+    ]
+
+    assert (
+        resolve_gguf_file_hint(files, "i1-Q4_K_M")
+        == "gemma-4-31B-it-uncensored-heretic.i1-Q4_K_M.gguf"
+    )
+
+
+def test_resolve_gguf_file_hint_rejects_ambiguous_hint():
+    files = [
+        "a/model.i1-Q4_K_M.gguf",
+        "b/model.i1-Q4_K_M.gguf",
+    ]
+
+    try:
+        resolve_gguf_file_hint(files, "i1-Q4_K_M")
+    except ValueError as error:
+        assert "複数" in str(error)
+    else:
+        raise AssertionError("expected ValueError")
+
+
+def test_resolve_gguf_file_hint_truncates_long_error_file_lists():
+    files = [f"model-{index:02d}.Q4_K_M.gguf" for index in range(21)]
+
+    try:
+        resolve_gguf_file_hint(files, "missing")
+    except ValueError as error:
+        assert "...他 1 件" in str(error)
+    else:
+        raise AssertionError("expected ValueError")
 
 
 def test_save_custom_llm_entry_merges_existing_file(tmp_path):

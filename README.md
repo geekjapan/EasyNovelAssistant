@@ -13,8 +13,8 @@ Fork 元の README は、このセクションの下に残しています。
 - Style-Bert-VITS2、動画生成、ツールメニューの起動処理をプラットフォーム別に扱うようにしました。
 - Unix 用セットアップと起動スクリプトを追加・強化しました。
 - モデルメタデータ正規化を追加し、`launch_args`、`generate_args`、`stop_sequence`、`info_url` などの拡張項目に対応しました。
-- Gemma 3 / Qwen3 系 GGUF モデルのプリセットと chat-template 用設定を追加しました。
-- モデルメニューから Hugging Face の GGUF モデル URL または `owner/repo` を追加できるようにしました。
+- Gemma 3 / Gemma 4 / Qwen3 系 GGUF モデルのプリセットと chat-template 用設定を追加しました。
+- モデルメニューから Hugging Face の GGUF モデル URL、`owner/repo`、`owner/repo:variant` を追加できるようにしました。
 - 読み上げ機能は初期セットアップ時に導入し、アプリ内の読み上げメニューは ON/OFF のみを扱うようにしました。
 - 生成文章、操作、情報、エラーのログを分離し、分析しやすい JSONL 形式にしました。
 - ダウンロード処理を一時ファイル経由にして、失敗時に壊れたファイルが残りにくいようにしました。
@@ -29,6 +29,7 @@ Fork 元の README は、このセクションの下に残しています。
 - 読み上げメニューを機能 ON/OFF のみに整理し、Style-Bert-VITS2 の導入を初期セットアップへ移しました。
 - Style-Bert-VITS2 のセットアップと起動を `uv run` ベースに変更しました。
 - Hugging Face の GGUF モデルをモデルメニューから追加し、`llm.json` に保存できるようにしました。
+- Gemma-4 preset として `mradermacher/gemma-4-31B-it-uncensored-heretic-i1-GGUF:i1-Q4_K_M` を追加しました。
 - PR レビュー対応として、Windows の `.bat` / `.cmd` 起動を `cmd /d /c call ... || pause` 経由に変更しました。
 - Style-Bert-VITS2 の Windows 起動を非ブロッキングに戻し、`--cpu` が正しくバッチファイルへ渡るようにしました。
 - KoboldCpp の生成バッチファイル名をサニタイズし、ユーザー定義モデル名に Windows で使えない文字が含まれても壊れにくくしました。

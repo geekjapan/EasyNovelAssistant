@@ -26,7 +26,7 @@ def test_default_json_files_load_with_utf8_sig():
     assert loaded[0]["log_operations"] is True
     assert loaded[0]["log_info"] is True
     assert loaded[0]["log_errors"] is True
-    assert len(loaded[1]) >= 29
+    assert len(loaded[1]) >= 30
     assert "CommandR" in loaded[2]
 
 
@@ -66,6 +66,15 @@ def test_modern_model_entries_have_optional_metadata():
     assert gemma["launch_args"] == ["--jinja"]
     assert gemma["generate_args"] == {}
 
+    gemma4 = llms["最新・汎用/Gemma-4-31B-it-uncensored-heretic-i1-Q4_K_M"]
+    assert gemma4["urls"] == [
+        "https://huggingface.co/mradermacher/gemma-4-31B-it-uncensored-heretic-i1-GGUF/resolve/main/gemma-4-31B-it-uncensored-heretic.i1-Q4_K_M.gguf"
+    ]
+    assert gemma4["context_size"] == 131072
+    assert gemma4["max_gpu_layer"] == 99
+    assert gemma4["launch_args"] == ["--jinja"]
+    assert gemma4["generate_args"] == {}
+
     qwen3 = llms["最新・日本語/Qwen3-14B-Q4_K_M"]
     assert qwen3["context_size"] == 131072
     assert qwen3["max_gpu_layer"] == 99
@@ -76,3 +85,4 @@ def test_modern_model_entries_have_optional_metadata():
     chat_template = sequences["ChatTemplate"]
     assert "Qwen3" in chat_template["model_names"]
     assert "gemma-3" in chat_template["model_names"]
+    assert "gemma-4" in chat_template["model_names"]

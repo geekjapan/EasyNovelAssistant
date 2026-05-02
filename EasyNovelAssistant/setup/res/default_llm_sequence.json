@@ -80,6 +80,8 @@
 		"model_names": [
 			"Gemma-3",
 			"gemma-3",
+			"Gemma-4",
+			"gemma-4",
 			"Qwen3"
 		],
 		"instruct": "{0}",
