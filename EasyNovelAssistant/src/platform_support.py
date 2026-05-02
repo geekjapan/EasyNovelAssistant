@@ -1,3 +1,4 @@
+import os
 import platform
 import shutil
 import subprocess
@@ -7,6 +8,7 @@ from pathlib import Path
 
 
 WINDOWS_UNSAFE_SCRIPT_PATH_CHARACTERS = set("&|<>^")
+PYTORCH_CUDA_INDEX_URL = "https://download.pytorch.org/whl/cu118"
 
 
 def _is_windows_batch_file(path):
@@ -61,6 +63,27 @@ class PlatformSupport:
         if found is not None:
             return found
         return tool_name
+
+    def resolve_uv(self):
+        uv_cmd = os.environ.get("UV_CMD")
+        if uv_cmd:
+            return uv_cmd
+        return self.resolve_tool("uv")
+
+    def style_bert_uv_dependencies(self):
+        args = [
+            "--with",
+            "GPUtil",
+            "--with",
+            "torch",
+            "--with",
+            "torchvision",
+            "--with",
+            "torchaudio",
+        ]
+        if not self.is_macos():
+            args.extend(["--extra-index-url", PYTORCH_CUDA_INDEX_URL, "--index-strategy", "unsafe-best-match"])
+        return args
 
     def launch_command(self, args, cwd=None):
         args = [str(arg) for arg in args]

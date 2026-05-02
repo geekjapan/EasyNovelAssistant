@@ -29,6 +29,7 @@ SETUP_LIB_DIR = ROOT / "EasyNovelAssistant" / "setup" / "lib"
 FFMPEG_DIR = SETUP_LIB_DIR / "ffmpeg-master-latest-win64-gpl"
 FFMPEG_ZIP = SETUP_LIB_DIR / "ffmpeg.zip"
 FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+PYTORCH_CUDA_INDEX_URL = "https://download.pytorch.org/whl/cu118"
 VECTEUS_FILE_NAME = "Vecteus-v1-IQ4_XS.gguf"
 VECTEUS_URLS = [
     "https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf",
@@ -39,6 +40,27 @@ STYLE_BERT_MODELS = [
     ("kaunista/kaunista-style-bert-vits2-models", "Anneli", "Anneli", "Anneli_e116_s32000"),
     ("kaunista/kaunista-style-bert-vits2-models", "Anneli-nsfw", "Anneli-nsfw", "Anneli-nsfw_e300_s5100"),
 ]
+
+
+def resolve_uv_command():
+    return os.environ.get("UV_CMD") or shutil.which("uv") or "uv"
+
+
+def style_bert_uv_dependencies(system=None):
+    system = system or platform.system()
+    args = [
+        "--with",
+        "GPUtil",
+        "--with",
+        "torch",
+        "--with",
+        "torchvision",
+        "--with",
+        "torchaudio",
+    ]
+    if system != "Darwin":
+        args.extend(["--extra-index-url", PYTORCH_CUDA_INDEX_URL, "--index-strategy", "unsafe-best-match"])
+    return args
 
 
 def select_kobold_binary(system=None, machine=None):
@@ -119,28 +141,18 @@ def ensure_default_model():
 
 
 def style_bert_uv_command(script_name, *args):
-    return [
-        "uv",
+    command = [
+        resolve_uv_command(),
         "run",
         "--python",
         sys.executable,
         "--with-requirements",
         "requirements.txt",
-        "--with",
-        "GPUtil",
-        "--with",
-        "torch",
-        "--with",
-        "torchvision",
-        "--with",
-        "torchaudio",
-        "--index",
-        "https://download.pytorch.org/whl/cu118",
-        "--index-strategy",
-        "unsafe-best-match",
-        script_name,
-        *args,
     ]
+    command.extend(style_bert_uv_dependencies())
+    command.append(script_name)
+    command.extend(args)
+    return command
 
 
 def ensure_style_bert_repo():
@@ -160,8 +172,17 @@ def ensure_windows_ffmpeg_bundle():
     print(f"Downloading {FFMPEG_URL}")
     download_file(FFMPEG_URL, FFMPEG_ZIP)
     with zipfile.ZipFile(FFMPEG_ZIP) as archive:
-        archive.extractall(SETUP_LIB_DIR)
+        safe_extract_zip(archive, SETUP_LIB_DIR)
     FFMPEG_ZIP.unlink(missing_ok=True)
+
+
+def safe_extract_zip(archive, destination):
+    destination = Path(destination).resolve()
+    for member in archive.infolist():
+        target = (destination / member.filename).resolve()
+        if target != destination and destination not in target.parents:
+            raise RuntimeError(f"Unsafe archive member path: {member.filename}")
+    archive.extractall(destination)
 
 
 def ensure_style_bert_model(repo_id, model_dir, model_name, model_safetensors):

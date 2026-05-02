@@ -28,27 +28,18 @@ class StyleBertVits2:
         self.play_queue = JobQueue()
 
     def build_uv_command(self, script_name, args=None):
-        return [
-            "uv",
+        command = [
+            self.platform.resolve_uv(),
             "run",
             "--python",
             sys.executable,
             "--with-requirements",
             "requirements.txt",
-            "--with",
-            "GPUtil",
-            "--with",
-            "torch",
-            "--with",
-            "torchvision",
-            "--with",
-            "torchaudio",
-            "--index",
-            "https://download.pytorch.org/whl/cu118",
-            "--index-strategy",
-            "unsafe-best-match",
-            script_name,
-        ] + list(args or [])
+        ]
+        command.extend(self.platform.style_bert_uv_dependencies())
+        command.append(script_name)
+        command.extend(args or [])
+        return command
 
     def install(self):
         msg = f"{Path.style_bert_vits2} に Style-Bert-VITS2 をインストールして、"

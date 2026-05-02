@@ -98,23 +98,13 @@ class ToolMenu:
 
     def _run_style_bert_vits2(self, py):
         command = [
-            "uv",
+            self.platform.resolve_uv(),
             "run",
             "--python",
             sys.executable,
             "--with-requirements",
             "requirements.txt",
-            "--with",
-            "GPUtil",
-            "--with",
-            "torch",
-            "--with",
-            "torchvision",
-            "--with",
-            "torchaudio",
-            "--index",
-            "https://download.pytorch.org/whl/cu118",
-            "--index-strategy",
-            "unsafe-best-match",
-        ] + shlex.split(py)
+        ]
+        command.extend(self.platform.style_bert_uv_dependencies())
+        command.extend(shlex.split(py))
         self.platform.launch_command(command, cwd=Path.style_bert_vits2)

@@ -39,6 +39,31 @@ def test_resolve_tool_returns_tool_name_when_missing(tmp_path, monkeypatch):
     assert support.resolve_tool("python") == "python"
 
 
+def test_resolve_uv_prefers_uv_cmd_environment(monkeypatch):
+    support = PlatformSupport(PlatformInfo("win32", "AMD64"))
+    monkeypatch.setenv("UV_CMD", "C:/Tools/uv.exe")
+
+    assert support.resolve_uv() == "C:/Tools/uv.exe"
+
+
+def test_style_bert_uv_dependencies_use_cuda_index_off_macos():
+    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+    args = support.style_bert_uv_dependencies()
+
+    assert "--extra-index-url" in args
+    assert "https://download.pytorch.org/whl/cu118" in args
+
+
+def test_style_bert_uv_dependencies_skip_cuda_index_on_macos_apple_silicon():
+    support = PlatformSupport(PlatformInfo("darwin", "arm64"))
+    args = support.style_bert_uv_dependencies()
+
+    assert "--with" in args
+    assert "torch" in args
+    assert "--extra-index-url" not in args
+    assert "https://download.pytorch.org/whl/cu118" not in args
+
+
 def test_windows_launch_command_uses_argument_list_without_shell(monkeypatch, tmp_path):
     support = PlatformSupport(PlatformInfo("win32", "AMD64"))
     popen = Mock(return_value="process")

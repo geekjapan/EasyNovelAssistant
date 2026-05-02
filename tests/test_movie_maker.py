@@ -155,6 +155,7 @@ def test_prepare_filter_chains_are_single_subprocess_arguments(tmp_path, monkeyp
 def test_make_runs_generated_script_with_script_directory(tmp_path):
     script_path = tmp_path / "movie assets" / "out.py"
     platform = Mock()
+    platform.resolve_uv.return_value = "uv"
     maker = MovieMaker(DummyContext(), platform_support=platform)
     audio_image_sets = [{"audio_path": "audio.wav", "image_path": "image.png"}]
     maker._select_audio_image_sets = Mock(return_value=audio_image_sets)

@@ -20,7 +20,8 @@ class DummyContext(dict):
         )
 
 
-def test_launch_server_uses_cuda_uv_command_without_cpu_arg(tmp_path):
+def test_launch_server_uses_cuda_uv_command_without_cpu_arg(tmp_path, monkeypatch):
+    monkeypatch.setenv("UV_CMD", "uv")
     style_dir = tmp_path / "Style-Bert-VITS2"
     support = PlatformSupport(PlatformInfo("linux", "x86_64"))
     support.launch_command = Mock()
@@ -38,7 +39,8 @@ def test_launch_server_uses_cuda_uv_command_without_cpu_arg(tmp_path):
     assert support.launch_command.call_args.kwargs == {"cwd": str(style_dir)}
 
 
-def test_launch_server_on_windows_also_uses_uv_not_batch(tmp_path):
+def test_launch_server_on_windows_uses_uv_cmd_not_batch(tmp_path, monkeypatch):
+    monkeypatch.setenv("UV_CMD", "C:/Tools/uv.exe")
     style_dir = tmp_path / "Style-Bert-VITS2"
     support = PlatformSupport(PlatformInfo("win32", "AMD64"))
     support.launch_command = Mock()
@@ -47,9 +49,24 @@ def test_launch_server_on_windows_also_uses_uv_not_batch(tmp_path):
     style.launch_server()
 
     command = support.launch_command.call_args.args[0]
-    assert command[0] == "uv"
+    assert command[0] == "C:/Tools/uv.exe"
     assert command[-1] == "server_fastapi.py"
     assert "--cpu" not in command
+
+
+def test_launch_server_on_macos_apple_silicon_skips_cuda_index(tmp_path, monkeypatch):
+    monkeypatch.setenv("UV_CMD", "uv")
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    support = PlatformSupport(PlatformInfo("darwin", "arm64"))
+    support.launch_command = Mock()
+    style = StyleBertVits2(DummyContext(), platform_support=support, style_bert_vits2_dir=style_dir)
+
+    style.launch_server()
+
+    command = support.launch_command.call_args.args[0]
+    assert "torch" in command
+    assert "--extra-index-url" not in command
+    assert "https://download.pytorch.org/whl/cu118" not in command
 
 
 def test_play_uses_ffplay_subprocess(monkeypatch):

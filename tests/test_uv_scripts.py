@@ -1,5 +1,9 @@
 import importlib.util
+import io
 from pathlib import Path
+import zipfile
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -137,11 +141,13 @@ def test_setup_python_script_runs_speech_setup_during_initial_setup(monkeypatch)
     assert calls == ["deps", "kobold", "model", "speech"]
 
 
-def test_setup_python_script_builds_style_bert_uv_command():
+def test_setup_python_script_builds_style_bert_uv_command(monkeypatch):
     script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
     spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_style", script)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    monkeypatch.setenv("UV_CMD", "uv")
+    monkeypatch.setattr(module.platform, "system", lambda: "Windows")
 
     command = module.style_bert_uv_command("server_fastapi.py")
 
@@ -149,7 +155,36 @@ def test_setup_python_script_builds_style_bert_uv_command():
     assert "--with-requirements" in command
     assert command[-1:] == ["server_fastapi.py"]
     assert "--cpu" not in command
+    assert "--extra-index-url" in command
     assert "https://download.pytorch.org/whl/cu118" in command
+
+
+def test_setup_python_script_skips_cuda_index_on_macos():
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_style_macos", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    args = module.style_bert_uv_dependencies("Darwin")
+
+    assert "torch" in args
+    assert "--extra-index-url" not in args
+    assert "https://download.pytorch.org/whl/cu118" not in args
+
+
+def test_setup_python_script_rejects_unsafe_zip_member(tmp_path):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_zip", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as archive:
+        archive.writestr("../evil.txt", "bad")
+    data.seek(0)
+
+    with zipfile.ZipFile(data) as archive:
+        with pytest.raises(RuntimeError, match="Unsafe archive member"):
+            module.safe_extract_zip(archive, tmp_path)
 
 
 def test_run_python_script_builds_sample_urls_without_empty_path_segments():

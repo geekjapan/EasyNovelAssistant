@@ -41,7 +41,7 @@ class MovieMaker:
         if script_path is None:
             return False
 
-        self.platform.launch_command(["uv", "run", script_path], cwd=os.path.dirname(script_path))
+        self.platform.launch_command([self.platform.resolve_uv(), "run", script_path], cwd=os.path.dirname(script_path))
         return True
 
     def _select_audio_image_sets(self):
