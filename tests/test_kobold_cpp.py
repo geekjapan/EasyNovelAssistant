@@ -261,6 +261,77 @@ def test_launch_server_launches_built_command_with_kobold_dir(tmp_path, monkeypa
     support.launch_command.assert_called_once_with(expected_command, cwd=str(kobold_dir))
 
 
+def test_launch_server_accepts_requested_model_when_already_loaded(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    kobold_dir.mkdir()
+    (kobold_dir / "modern.gguf").write_text("", encoding="utf-8")
+    ctx = DummyContext(tmp_path)
+    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+    support.launch_command = Mock()
+    kobold = KoboldCpp(ctx, platform_support=support, kobold_cpp_dir=kobold_dir)
+    monkeypatch.setattr(kobold, "get_model", Mock(return_value="modern.gguf"))
+
+    result = kobold.launch_server()
+
+    assert result is None
+    support.launch_command.assert_not_called()
+
+
+def test_launch_server_switches_model_by_stopping_managed_server(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    kobold_dir.mkdir()
+    (kobold_dir / "modern.gguf").write_text("", encoding="utf-8")
+    (kobold_dir / "other.gguf").write_text("", encoding="utf-8")
+    ctx = DummyContext(tmp_path)
+    ctx.llm["Other"] = {
+        "urls": ["https://huggingface.co/example/other/resolve/main/other.gguf"],
+        "context_size": 32768,
+        "max_gpu_layer": 99,
+    }
+    ctx["llm_name"] = "Other"
+    process = Mock(pid=1234)
+    process.poll.return_value = None
+    new_process = Mock()
+    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+    support.launch_command = Mock(return_value=new_process)
+    kobold = KoboldCpp(ctx, platform_support=support, kobold_cpp_dir=kobold_dir)
+    kobold.server_process = process
+    monkeypatch.setattr(kobold, "get_model", Mock(side_effect=["modern.gguf", None]))
+
+    result = kobold.launch_server()
+
+    assert result is None
+    process.terminate.assert_called_once_with()
+    process.wait.assert_called_once_with(timeout=10)
+    support.launch_command.assert_called_once()
+    assert support.launch_command.call_args.args[0][-1] == str(kobold_dir / "other.gguf")
+    assert kobold.server_process is new_process
+
+
+def test_launch_server_cannot_switch_external_loaded_model(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    kobold_dir.mkdir()
+    (kobold_dir / "modern.gguf").write_text("", encoding="utf-8")
+    (kobold_dir / "other.gguf").write_text("", encoding="utf-8")
+    ctx = DummyContext(tmp_path)
+    ctx.llm["Other"] = {
+        "urls": ["https://huggingface.co/example/other/resolve/main/other.gguf"],
+        "context_size": 32768,
+        "max_gpu_layer": 99,
+    }
+    ctx["llm_name"] = "Other"
+    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+    support.launch_command = Mock()
+    kobold = KoboldCpp(ctx, platform_support=support, kobold_cpp_dir=kobold_dir)
+    monkeypatch.setattr(kobold, "get_model", Mock(return_value="modern.gguf"))
+
+    result = kobold.launch_server()
+
+    assert "modern.gguf がすでにロード済みです" in result
+    assert "other.gguf に切り替えるには" in result
+    support.launch_command.assert_not_called()
+
+
 def test_generate_posts_payload_and_returns_text(tmp_path, monkeypatch):
     kobold_dir = tmp_path / "KoboldCpp"
     log_path = tmp_path / "generated.jsonl"

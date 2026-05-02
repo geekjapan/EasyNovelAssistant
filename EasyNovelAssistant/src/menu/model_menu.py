@@ -59,6 +59,7 @@ class ModelMenu:
 
         self.menu.add_separator()
         self.menu.add_command(label="Hugging Face GGUFモデルを追加...", command=self.add_huggingface_model)
+        self.menu.add_command(label="モデルサーバー停止", command=self.stop_model_server)
         self.menu.add_separator()
 
         categories = {}
@@ -116,6 +117,21 @@ class ModelMenu:
                 gpu_layer=gpu_layer,
             )
             messagebox.showerror("エラー", result, parent=self.form.win)
+
+    def stop_model_server(self):
+        stopped = self.ctx.kobold_cpp.stop_server()
+        loaded_model = self.ctx.kobold_cpp.get_model()
+        if loaded_model is not None:
+            messagebox.showerror(
+                "エラー",
+                f"{loaded_model} がまだロード済みです。\nモデルサーバーのコマンドプロンプトを閉じてください。",
+                parent=self.form.win,
+            )
+            return
+        if stopped:
+            messagebox.showinfo("モデルサーバー停止", "モデルサーバーを停止しました。", parent=self.form.win)
+        else:
+            messagebox.showinfo("モデルサーバー停止", "モデルサーバーは起動していません。", parent=self.form.win)
 
     def add_huggingface_model(self):
         value = simpledialog.askstring(
