@@ -277,6 +277,34 @@ def test_launch_server_accepts_requested_model_when_already_loaded(tmp_path, mon
     support.launch_command.assert_not_called()
 
 
+def test_launch_server_reloads_managed_server_when_gpu_layer_changes(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    kobold_dir.mkdir()
+    (kobold_dir / "modern.gguf").write_text("", encoding="utf-8")
+    ctx = DummyContext(tmp_path)
+    ctx["llm_gpu_layer"] = 11
+    process = Mock(pid=1234)
+    process.poll.return_value = None
+    new_process = Mock()
+    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+    support.launch_command = Mock(return_value=new_process)
+    kobold = KoboldCpp(ctx, platform_support=support, kobold_cpp_dir=kobold_dir)
+    kobold.server_process = process
+    kobold.server_model_file_name = "modern.gguf"
+    kobold.server_gpu_layer = 7
+    monkeypatch.setattr(kobold, "get_model", Mock(side_effect=["modern.gguf", None]))
+
+    result = kobold.launch_server()
+
+    assert result is None
+    process.terminate.assert_called_once_with()
+    process.wait.assert_called_once_with(timeout=10)
+    command = support.launch_command.call_args.args[0]
+    assert command[command.index("--gpulayers") + 1] == "11"
+    assert kobold.server_process is new_process
+    assert kobold.server_gpu_layer == 11
+
+
 def test_launch_server_switches_model_by_stopping_managed_server(tmp_path, monkeypatch):
     kobold_dir = tmp_path / "KoboldCpp"
     kobold_dir.mkdir()

@@ -40,6 +40,8 @@ class KoboldCpp:
 
         self.model_name = None
         self.server_process = None
+        self.server_model_file_name = None
+        self.server_gpu_layer = None
         normalize_llm_map(ctx.llm)
         os.makedirs(self.kobold_cpp_dir, exist_ok=True)
 
@@ -192,6 +194,8 @@ class KoboldCpp:
     def stop_server(self, timeout=10):
         if not self.is_managed_server_running():
             self.server_process = None
+            self.server_model_file_name = None
+            self.server_gpu_layer = None
             return False
         app_logger.log_operation("kobold_cpp", "stop_server", pid=getattr(self.server_process, "pid", None))
         self.server_process.terminate()
@@ -202,6 +206,8 @@ class KoboldCpp:
             self.server_process.kill()
             self.server_process.wait(timeout=timeout)
         self.server_process = None
+        self.server_model_file_name = None
+        self.server_gpu_layer = None
         return True
 
     def wait_until_model_unloaded(self, timeout=15, interval=0.5):
@@ -222,9 +228,23 @@ class KoboldCpp:
         loaded_model = self.get_model()
         if loaded_model is not None:
             if loaded_model == target_file_name:
-                app_logger.log_operation("kobold_cpp", "model_already_loaded", llm_name=llm_name, model=loaded_model)
-                return None
-            if self.stop_server() and self.wait_until_model_unloaded():
+                if self.is_managed_server_running() and self.server_gpu_layer != gpu_layer:
+                    if self.stop_server() and self.wait_until_model_unloaded():
+                        app_logger.log_operation(
+                            "kobold_cpp",
+                            "reload_model_for_gpu_layer",
+                            model=loaded_model,
+                            gpu_layer=gpu_layer,
+                        )
+                    else:
+                        return (
+                            f"{loaded_model} がすでにロード済みです。\n"
+                            f"GPUレイヤーを L{gpu_layer} に変更するには、モデルサーバーのコマンドプロンプトを閉じてください。"
+                        )
+                else:
+                    app_logger.log_operation("kobold_cpp", "model_already_loaded", llm_name=llm_name, model=loaded_model)
+                    return None
+            elif self.stop_server() and self.wait_until_model_unloaded():
                 app_logger.log_operation(
                     "kobold_cpp",
                     "switch_model_after_stop",
@@ -257,6 +277,8 @@ class KoboldCpp:
             cwd=self.kobold_cpp_dir,
         )
         self.server_process = self.platform.launch_command(command, cwd=self.kobold_cpp_dir)
+        self.server_model_file_name = target_file_name
+        self.server_gpu_layer = gpu_layer
         return None
 
     def generate(self, text):
