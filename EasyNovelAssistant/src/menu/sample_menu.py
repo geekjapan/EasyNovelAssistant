@@ -5,6 +5,7 @@ import urllib.request
 import webbrowser
 from urllib.parse import quote
 
+import app_logger
 from path import Path
 
 
@@ -112,18 +113,6 @@ class SampleMenu:
             if name in desc["splitter_names"]:
                 menu.add_separator()
 
-    # def _download(self, path):
-    #     url = self.URL_TEMPLATE.format(path)
-    #     try:
-    #         with urllib.request.urlopen(url) as res:
-    #             data = res.read()
-    #         with open(os.path.join(Path.sample, path), "wb") as f:
-    #             f.write(data)
-    #             return data
-    #     except Exception as e:
-    #         print(e)
-    #     return None
-
     def on_menu_select(self, item, mode):
         if (mode == "set") or (mode == "insert"):
             if item.startswith("http"):
@@ -133,7 +122,7 @@ class SampleMenu:
                         item = res.read().decode("utf-8-sig")
                 except Exception as e:
                     webbrowser.open(url)
-                    print(f"{e}. {url}")
+                    app_logger.log_exception("sample_menu", "failed to download sample item", e, url=url)
                     return
             if ("{char_name}" in item) or ("{user_name}" in item):
                 item = item.format(char_name=self.ctx["char_name"], user_name=self.ctx["user_name"])
@@ -146,6 +135,6 @@ class SampleMenu:
                 url = quote(item, safe=":/?=")
                 webbrowser.open(url)
             else:
-                print(f"SampleMenu invalid URL: {mode}, {item}")
+                app_logger.log_error("sample_menu", "invalid sample URL", event="invalid_sample_url", mode=mode, item=item)
         else:
-            print(f"SampleMenu unknown mode: {mode}, {item}")
+            app_logger.log_error("sample_menu", "unknown sample menu mode", event="unknown_sample_mode", mode=mode, item=item)

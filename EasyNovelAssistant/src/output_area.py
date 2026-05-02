@@ -1,6 +1,7 @@
 ﻿import tkinter as tk
 from tkinter import scrolledtext
 
+import app_logger
 from const import Const
 from path import Path
 
@@ -43,6 +44,7 @@ class OutputArea:
         output = self.ctx["output_format"].format(self.counter, output)
         self.counter += 1
         self.append_text(output)
+        app_logger.log_operation("output_area", "append_output", counter=self.counter - 1, text_length=len(output))
 
         with open(Path.output_log, "a", encoding="utf-8-sig") as f:
             f.write(output)

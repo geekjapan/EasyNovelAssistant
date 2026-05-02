@@ -1,5 +1,6 @@
 ﻿import time
 
+import app_logger
 from job_queue import JobQueue
 
 
@@ -25,9 +26,10 @@ class Generator:
         if model_name is None:
             result = self.ctx.kobold_cpp.launch_server()
             if result is not None:
-                print(result)
+                app_logger.log_error("generator", result, event="initial_kobold_launch_failed")
         else:
             self.enabled = True
+            app_logger.log_operation("generator", "initial_kobold_ready", model_name=model_name)
             self.ctx.form.update_title()
 
     def update(self):

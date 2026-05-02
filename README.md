@@ -16,6 +16,7 @@ Fork 元の README は、このセクションの下に残しています。
 - Gemma 3 / Qwen3 系 GGUF モデルのプリセットと chat-template 用設定を追加しました。
 - モデルメニューから Hugging Face の GGUF モデル URL または `owner/repo` を追加できるようにしました。
 - 読み上げ機能は初期セットアップ時に導入し、アプリ内の読み上げメニューは ON/OFF のみを扱うようにしました。
+- 生成文章、操作、情報、エラーのログを分離し、分析しやすい JSONL 形式にしました。
 - ダウンロード処理を一時ファイル経由にして、失敗時に壊れたファイルが残りにくいようにしました。
 - pytest ベースの回帰テストを追加しました。
 - `.gitignore` と `.gitattributes` を追加し、生成物と改行・空白検査の扱いを整理しました。
@@ -24,6 +25,7 @@ Fork 元の README は、このセクションの下に残しています。
 
 ### 2026/05/02
 
+- ログを `*-generated.jsonl`、`*-operations.log`、`*-info.log`、`*-errors.log`、`*-output.txt` に分離しました。
 - 読み上げメニューを機能 ON/OFF のみに整理し、Style-Bert-VITS2 の導入を初期セットアップへ移しました。
 - Style-Bert-VITS2 のセットアップと起動を `uv run` ベースに変更しました。
 - Hugging Face の GGUF モデルをモデルメニューから追加し、`llm.json` に保存できるようにしました。

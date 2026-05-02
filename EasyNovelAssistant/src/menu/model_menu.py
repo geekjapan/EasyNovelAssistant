@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 
+import app_logger
 from huggingface_models import (
     build_custom_llm_name,
     build_gguf_llm_entry,
@@ -106,7 +107,13 @@ class ModelMenu:
         self.ctx["llm_gpu_layer"] = gpu_layer
         result = self.ctx.kobold_cpp.launch_server()
         if result is not None:
-            print(result)
+            app_logger.log_error(
+                "model_menu",
+                result,
+                event="select_model_launch_failed",
+                llm_name=llm_name,
+                gpu_layer=gpu_layer,
+            )
             messagebox.showerror("エラー", result, parent=self.form.win)
 
     def add_huggingface_model(self):
@@ -141,6 +148,7 @@ class ModelMenu:
                 parent=self.form.win,
             )
         except Exception as error:
+            app_logger.log_exception("model_menu", "failed to add Hugging Face GGUF model", error, input_value=value)
             messagebox.showerror("Hugging Face GGUFモデルを追加", str(error), parent=self.form.win)
 
     def _ask_gguf_file(self, repo_id, files):

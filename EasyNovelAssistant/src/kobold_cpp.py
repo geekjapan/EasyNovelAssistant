@@ -3,8 +3,10 @@ import os
 import shlex
 import subprocess
 import tempfile
+import time
 import webbrowser
 
+import app_logger
 import requests
 from model_metadata import normalize_llm_map
 from path import Path
@@ -126,6 +128,7 @@ popd
 
     def download_model(self, llm_name):
         llm = self.ctx.llm[llm_name]
+        app_logger.log_operation("kobold_cpp", "download_model_start", llm_name=llm_name, urls=llm["urls"])
         webbrowser.open(llm["info_url"])
         for url in llm["urls"]:
             file_name = url.split("/")[-1]
@@ -142,12 +145,37 @@ popd
                 if subprocess.run(curl_cmd, cwd=self.kobold_cpp_dir).returncode != 0:
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
+                    app_logger.log_error(
+                        "kobold_cpp",
+                        "model download failed",
+                        event="download_model_failed",
+                        llm_name=llm_name,
+                        url=url,
+                        command=curl_cmd,
+                    )
                     return f'{llm_name} のダウンロードに失敗しました。\n{" ".join(curl_cmd)}'
                 os.replace(temp_path, final_path)
-            except Exception:
+                app_logger.log_operation(
+                    "kobold_cpp",
+                    "download_model_file_done",
+                    llm_name=llm_name,
+                    url=url,
+                    output_path=final_path,
+                )
+            except Exception as error:
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
+                app_logger.log_exception(
+                    "kobold_cpp",
+                    "model download raised exception",
+                    error,
+                    event="download_model_exception",
+                    llm_name=llm_name,
+                    url=url,
+                    temp_path=temp_path,
+                )
                 raise
+        app_logger.log_operation("kobold_cpp", "download_model_done", llm_name=llm_name)
         return None
 
     def get_kobold_cpp_executable(self):
@@ -174,8 +202,13 @@ popd
         llm = ctx.llm[llm_name]
         max_context_length = min(llm["context_size"], ctx["llm_context_size"])
         if ctx["max_length"] >= max_context_length:
-            print(
-                f'生成文の長さ ({ctx["max_length"]}) がコンテキストサイズ上限 ({max_context_length}) 以上なため、{max_context_length // 2} に短縮します。'
+            app_logger.log_info(
+                "kobold_cpp",
+                "max_length exceeds context size; shortened",
+                event="max_length_shortened",
+                max_length=ctx["max_length"],
+                max_context_length=max_context_length,
+                new_max_length=max_context_length // 2,
             )
             ctx["max_length"] = max_context_length // 2
 
@@ -228,26 +261,46 @@ popd
             return f"{llm_path} がありません。"
 
         command = self.build_launch_args(llm_name, gpu_layer)
+        app_logger.log_operation(
+            "kobold_cpp",
+            "launch_server",
+            llm_name=llm_name,
+            gpu_layer=gpu_layer,
+            command=command,
+            cwd=self.kobold_cpp_dir,
+        )
         self.platform.launch_command(command, cwd=self.kobold_cpp_dir)
         return None
 
     def generate(self, text):
         args = self.build_generate_payload(text)
-        print(f"KoboldCpp.generate({args})")
+        start_time = time.perf_counter()
+        app_logger.log_operation(
+            "kobold_cpp",
+            "generate_request",
+            llm_name=self.ctx["llm_name"],
+            max_length=args["max_length"],
+            max_context_length=args["max_context_length"],
+        )
         try:
             response = requests.post(self.generate_url, json=args)
             if response.status_code == 200:
                 if self.model_name is not None:
                     args["model_name"] = self.model_name
                 args["result"] = response.json()["results"][0]["text"]
-                print(f'KoboldCpp.generate(): {args["result"]}')
-                with open(Path.generate_log, "a", encoding="utf-8-sig") as f:
-                    json.dump(args, f, indent=4, ensure_ascii=False)
-                    f.write("\n")
+                args["elapsed_sec"] = round(time.perf_counter() - start_time, 3)
+                app_logger.log_generated("kobold_cpp", args)
                 return args["result"]
-            print(f"[失敗] KoboldCpp.generate(): {response.text}")
+            app_logger.log_error(
+                "kobold_cpp",
+                "generate request failed",
+                event="generate_failed",
+                status_code=response.status_code,
+                response_text=response.text,
+                payload=args,
+            )
         except Exception as e:
-            print(f"[例外] KoboldCpp.generate(): {e}")
+            app_logger.log_exception("kobold_cpp", "generate request raised exception", e, payload=args)
         return None
 
     def check(self):
@@ -255,9 +308,15 @@ popd
             response = requests.get(self.check_url)
             if response.status_code == 200:
                 return response.json()["results"][0]["text"]
-            print(f"[失敗] KoboldCpp.check(): {response.text}")
-        except Exception as e:
-            pass  # print(f"[例外] KoboldCpp.check(): {e}") # 害が無さそう＆利用者が混乱しそう
+            app_logger.log_error(
+                "kobold_cpp",
+                "check request failed",
+                event="check_failed",
+                status_code=response.status_code,
+                response_text=response.text,
+            )
+        except Exception:
+            pass
         return None
 
     def abort(self):
@@ -265,7 +324,13 @@ popd
             response = requests.post(self.abort_url, timeout=self.ctx["koboldcpp_command_timeout"])
             if response.status_code == 200:
                 return response.json()["success"]
-            print(f"[失敗] KoboldCpp.abort(): {response.text}")
+            app_logger.log_error(
+                "kobold_cpp",
+                "abort request failed",
+                event="abort_failed",
+                status_code=response.status_code,
+                response_text=response.text,
+            )
         except Exception as e:
-            print(f"[例外] KoboldCpp.abort(): {e}")
+            app_logger.log_exception("kobold_cpp", "abort request raised exception", e)
         return None

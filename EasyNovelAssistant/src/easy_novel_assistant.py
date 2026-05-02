@@ -1,5 +1,6 @@
 ﻿import time
 
+import app_logger
 from const import Const
 from context import Context
 from form import Form
@@ -15,6 +16,8 @@ class EasyNovelAssistant:
 
     def __init__(self):
         self.ctx = Context()
+        app_logger.configure(self.ctx.cfg)
+        app_logger.log_operation("app", "startup", cwd=Path.cwd)
         Path.init(self.ctx)
         Const.init(self.ctx)
 

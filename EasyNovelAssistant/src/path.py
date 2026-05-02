@@ -39,7 +39,10 @@ class Path:
     os.makedirs(daily_log, exist_ok=True)
 
     YYYYMMDD_HHMMSS = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-    generate_log = os.path.join(daily_log, f"{YYYYMMDD_HHMMSS}-generate.txt")
+    generated_log = os.path.join(daily_log, f"{YYYYMMDD_HHMMSS}-generated.jsonl")
+    operation_log = os.path.join(daily_log, f"{YYYYMMDD_HHMMSS}-operations.log")
+    info_log = os.path.join(daily_log, f"{YYYYMMDD_HHMMSS}-info.log")
+    error_log = os.path.join(daily_log, f"{YYYYMMDD_HHMMSS}-errors.log")
     output_log = os.path.join(daily_log, f"{YYYYMMDD_HHMMSS}-output.txt")
 
     speech = os.path.join(cwd, "speech")

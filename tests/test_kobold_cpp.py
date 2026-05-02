@@ -1,3 +1,4 @@
+import json
 import os
 from unittest.mock import Mock
 
@@ -165,6 +166,32 @@ def test_download_model_removes_temp_file_after_curl_failure(tmp_path, monkeypat
     assert not (kobold_dir / "modern.gguf").exists()
 
 
+def test_download_model_logs_unexpected_exceptions(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    error_log = tmp_path / "errors.log"
+    ctx = DummyContext(tmp_path)
+    monkeypatch.setattr(kobold_cpp.webbrowser, "open", Mock())
+    monkeypatch.setattr(kobold_cpp.os, "replace", Mock(side_effect=OSError("replace failed")))
+    monkeypatch.setattr(kobold_cpp.app_logger.Path, "error_log", str(error_log))
+    monkeypatch.setattr(kobold_cpp.subprocess, "run", Mock(return_value=Mock(returncode=0)))
+    kobold = KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    try:
+        kobold.download_model("Modern")
+    except OSError:
+        pass
+
+    logged = json.loads(error_log.read_text(encoding="utf-8-sig").splitlines()[0])
+    assert logged["event"] == "download_model_exception"
+    assert logged["llm_name"] == "Modern"
+    assert logged["url"] == "https://huggingface.co/example/modern/resolve/main/modern.gguf"
+    assert "temp_path" in logged
+
+
 def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):
     kobold_dir = tmp_path / "KoboldCpp"
     ctx = DummyContext(tmp_path)
@@ -248,13 +275,15 @@ def test_launch_server_launches_built_command_with_kobold_dir(tmp_path, monkeypa
 
 def test_generate_posts_payload_and_returns_text(tmp_path, monkeypatch):
     kobold_dir = tmp_path / "KoboldCpp"
-    log_path = tmp_path / "generate-log.txt"
+    log_path = tmp_path / "generated.jsonl"
+    operation_log_path = tmp_path / "operations.log"
     ctx = DummyContext(tmp_path)
     response = Mock(status_code=200)
     response.json.return_value = {"results": [{"text": " world"}]}
     post = Mock(return_value=response)
     monkeypatch.setattr(kobold_cpp.requests, "post", post)
-    monkeypatch.setattr(AppPath, "generate_log", str(log_path))
+    monkeypatch.setattr(kobold_cpp.app_logger.Path, "generated_log", str(log_path))
+    monkeypatch.setattr(kobold_cpp.app_logger.Path, "operation_log", str(operation_log_path))
     kobold = KoboldCpp(
         ctx,
         platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
@@ -269,6 +298,13 @@ def test_generate_posts_payload_and_returns_text(tmp_path, monkeypatch):
     posted_json = post.call_args.kwargs["json"]
     assert posted_json["prompt"] == "hello"
     assert posted_json["reasoning_effort"] == "low"
+    logged = json.loads(log_path.read_text(encoding="utf-8-sig").splitlines()[0])
+    assert logged["event"] == "generated_text"
+    assert logged["prompt"] == "hello"
+    assert logged["result"] == " world"
+    operation = json.loads(operation_log_path.read_text(encoding="utf-8-sig").splitlines()[0])
+    assert operation["event"] == "generate_request"
+    assert "prompt" not in operation
 
 
 def test_build_launch_args_shlex_splits_user_koboldcpp_arg(tmp_path):

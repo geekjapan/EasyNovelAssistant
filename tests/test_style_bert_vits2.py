@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 import sys
+import json
 
 import style_bert_vits2
 from path import Path as AppPath
@@ -123,3 +124,24 @@ def test_generate_returns_false_without_queueing_when_speech_is_disabled():
 
     assert result is False
     style.gen_queue.push.assert_not_called()
+
+
+def test_generate_logs_queue_skip_to_info_log(tmp_path, monkeypatch):
+    info_log = tmp_path / "info.log"
+    monkeypatch.setattr(style_bert_vits2.app_logger.Path, "info_log", str(info_log))
+    style = StyleBertVits2(DummyContext())
+    style.gen_queue.len = Mock(return_value=4)
+    style.play_queue.len = Mock(return_value=0)
+    style.gen_queue.push = Mock()
+
+    result = style.generate("混雑時の行")
+
+    assert result is False
+    style.gen_queue.push.assert_not_called()
+    logged = json.loads(info_log.read_text(encoding="utf-8-sig").splitlines()[0])
+    assert logged["component"] == "speech"
+    assert logged["event"] == "speech_queue_skipped"
+    assert logged["gen_queue_len"] == 4
+    assert logged["play_queue_len"] == 0
+    style.gen_queue.len.assert_called_once_with()
+    style.play_queue.len.assert_called_once_with()
