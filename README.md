@@ -29,7 +29,7 @@ Fork 元の README は、このセクションの下に残しています。
 - 読み上げメニューを機能 ON/OFF のみに整理し、Style-Bert-VITS2 の導入を初期セットアップへ移しました。
 - Style-Bert-VITS2 のセットアップと起動を `uv run` ベースに変更しました。
 - Hugging Face の GGUF モデルをモデルメニューから追加し、`llm.json` に保存できるようにしました。
-- Gemma4 preset として `mradermacher/gemma-4-31B-it-uncensored-heretic-i1-GGUF:i1-Q4_K_M` を追加しました。
+- Gemma-4 preset として `mradermacher/gemma-4-31B-it-uncensored-heretic-i1-GGUF:i1-Q4_K_M` を追加しました。
 - PR レビュー対応として、Windows の `.bat` / `.cmd` 起動を `cmd /d /c call ... || pause` 経由に変更しました。
 - Style-Bert-VITS2 の Windows 起動を非ブロッキングに戻し、`--cpu` が正しくバッチファイルへ渡るようにしました。
 - KoboldCpp の生成バッチファイル名をサニタイズし、ユーザー定義モデル名に Windows で使えない文字が含まれても壊れにくくしました。

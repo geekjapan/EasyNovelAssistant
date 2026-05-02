@@ -107,30 +107,45 @@ def resolve_gguf_file_hint(files, file_hint):
     def normalize(value):
         return value.lower()
 
+    def format_choices(paths):
+        choices = "\n".join(paths[:20])
+        if len(paths) > 20:
+            choices += f"\n...他 {len(paths) - 20} 件"
+        return choices
+
     def unique_match(matches):
         if len(matches) == 1:
-            return matches[0]
+            return matches[0]["path"]
         if len(matches) > 1:
-            choices = "\n".join(matches[:20])
+            choices = format_choices([match["path"] for match in matches])
             raise ValueError(f"variant指定 '{file_hint}' に一致するGGUFファイルが複数あります。\n\n{choices}")
         return None
 
     hint_lower = normalize(hint)
     hint_with_ext = hint_lower if hint_lower.endswith(".gguf") else f"{hint_lower}.gguf"
+    indexed_files = [
+        {
+            "path": path,
+            "path_lower": normalize(path),
+            "name_lower": normalize(Path(path).name),
+            "stem_lower": normalize(Path(path).stem),
+        }
+        for path in files
+    ]
     matchers = [
-        lambda path: normalize(path) == hint_lower,
-        lambda path: normalize(Path(path).name) == hint_lower,
-        lambda path: normalize(Path(path).name) == hint_with_ext,
-        lambda path: normalize(Path(path).stem) == hint_lower,
-        lambda path: hint_lower in normalize(Path(path).stem),
+        lambda item: item["path_lower"] == hint_lower,
+        lambda item: item["name_lower"] == hint_lower,
+        lambda item: item["name_lower"] == hint_with_ext,
+        lambda item: item["stem_lower"] == hint_lower,
+        lambda item: hint_lower in item["stem_lower"],
     ]
 
     for matcher in matchers:
-        match = unique_match([path for path in files if matcher(path)])
+        match = unique_match([item for item in indexed_files if matcher(item)])
         if match is not None:
             return match
 
-    choices = "\n".join(files[:20])
+    choices = format_choices(files)
     raise ValueError(f"variant指定 '{file_hint}' に一致するGGUFファイルが見つかりませんでした。\n\n{choices}")
 
 

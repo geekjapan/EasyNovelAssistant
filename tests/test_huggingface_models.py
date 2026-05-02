@@ -102,6 +102,17 @@ def test_resolve_gguf_file_hint_rejects_ambiguous_hint():
         raise AssertionError("expected ValueError")
 
 
+def test_resolve_gguf_file_hint_truncates_long_error_file_lists():
+    files = [f"model-{index:02d}.Q4_K_M.gguf" for index in range(21)]
+
+    try:
+        resolve_gguf_file_hint(files, "missing")
+    except ValueError as error:
+        assert "...他 1 件" in str(error)
+    else:
+        raise AssertionError("expected ValueError")
+
+
 def test_save_custom_llm_entry_merges_existing_file(tmp_path):
     llm_path = tmp_path / "llm.json"
     llm_path.write_text('{"Existing": {"urls": ["https://example.com/model.gguf"]}}', encoding="utf-8-sig")

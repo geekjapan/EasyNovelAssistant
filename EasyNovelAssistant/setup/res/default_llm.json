@@ -226,7 +226,7 @@
 			"--jinja"
 		],
 		"generate_args": {},
-		"notes": "Gemma4 系。KoboldCpp の Jinja/chat template 対応を利用します。"
+		"notes": "Gemma-4 系。KoboldCpp の Jinja/chat template 対応を利用します。"
 	},
 	"最新・日本語/Qwen3-14B-Q4_K_M": {
 		"max_gpu_layer": 99,
