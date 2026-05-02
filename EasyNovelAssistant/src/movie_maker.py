@@ -1,6 +1,5 @@
 ﻿import os
 import re
-import shlex
 import time
 
 from path import Path
@@ -38,11 +37,11 @@ class MovieMaker:
         if movie_path is None:
             return False
 
-        bat_path = self._prepare(audio_image_sets, movie_path)
-        if bat_path is None:
+        script_path = self._prepare(audio_image_sets, movie_path)
+        if script_path is None:
             return False
 
-        self.platform.run_script_file(bat_path, cwd=os.path.dirname(bat_path))
+        self.platform.launch_command([self.platform.resolve_uv(), "run", script_path], cwd=os.path.dirname(script_path))
         return True
 
     def _select_audio_image_sets(self):
@@ -117,28 +116,19 @@ class MovieMaker:
         movie_name = os.path.basename(movie_path).split(".")[0]
         assets_dir = os.path.join(os.path.dirname(movie_path), movie_name)
         os.makedirs(assets_dir, exist_ok=True)
+        return self._prepare_python(audio_image_sets, movie_path, assets_dir)
 
-        if self.platform.is_windows():
-            return self._prepare_windows(audio_image_sets, movie_path, assets_dir)
-        return self._prepare_unix(audio_image_sets, movie_path, assets_dir)
+    def _ffmpeg_tools(self):
+        ffmpeg = Path.ffmpeg if os.path.exists(Path.ffmpeg) else self.platform.resolve_tool("ffmpeg")
+        ffplay = Path.ffplay if os.path.exists(Path.ffplay) else self.platform.resolve_tool("ffplay")
+        return ffmpeg, ffplay
 
-    def _prepare_windows(self, audio_image_sets, movie_path, assets_dir):
+    def _prepare_python(self, audio_image_sets, movie_path, assets_dir):
         movie_name = os.path.basename(movie_path).split(".")[0]
-        bat = """@echo off
-chcp 65001 > NUL
-pushd %~dp0
-set "FFMPEG={ffmpeg}"
-set "FFPLAY={ffplay}"
-
-""".format(
-            ffmpeg=Path.ffmpeg, ffplay=Path.ffplay
-        )
-
-        subtitle_template = """1
-00:00:00,000 --> 90:00:00,000
-{serif}
-"""
+        ffmpeg, ffplay = self._ffmpeg_tools()
+        subtitle_template = "1\n00:00:00,000 --> 90:00:00,000\n{serif}\n"
         part_paths = []
+        commands = []
         for i, audio_image_set in enumerate(audio_image_sets):
             audio_path = audio_image_set["audio_path"]
             image_path = audio_image_set["image_path"]
@@ -155,106 +145,6 @@ set "FFPLAY={ffplay}"
             part_path = os.path.join(assets_dir, f"{audio_name}.mp4")
             part_paths.append(part_path)
 
-            vf = ""
-            mov_resize = self.ctx["mov_resize"]
-            mov_subtitles = self.ctx["mov_subtitles"]
-            if mov_resize > 0 or mov_subtitles:
-                vf = '\n-vf "'
-                if mov_resize > 0:
-                    vf += f"scale='if(gt(a,1),{mov_resize},-2)':'if(gt(a,1),-2,{mov_resize})'"
-                    if mov_subtitles:
-                        vf += ", "
-                if mov_subtitles:
-                    vf += f"subtitles={self._ffmpeg_filter_single_quote_value(os.path.basename(subtitle_path))}"
-                vf += '" ^'
-
-            af = ""
-            volume_adjust = self.ctx["mov_volume_adjust"]
-            tempo_adjust = self.ctx["mov_tempo_adjust"]
-            if volume_adjust or tempo_adjust:
-                af = '\n-af "'
-                if volume_adjust:
-                    af += f"volume={self.ctx['speech_volume'] / 100}"
-                    if tempo_adjust:
-                        af += ", "
-                if tempo_adjust:
-                    af += f"atempo={self.ctx['speech_speed']}"
-                af += '" ^'
-
-            bat += """echo "{i}: {serif}"
-"%FFMPEG%" -y -loglevel error ^
--i "{audio_path}" ^
--loop 1 -i "{image_path}" ^
--vcodec libx264 ^
--pix_fmt yuv420p ^
--acodec aac ^
--ab 128k ^
--ac 1 ^
--ar 44100 ^
--shortest ^{vf}{af}
--crf {crf} ^
-"{part_path}"
-if %errorlevel% neq 0 ( pause & popd & exit /b 1)
-
-""".format(
-                i=i,
-                serif=serif,
-                audio_path=audio_path,
-                image_path=image_path,
-                vf=vf,
-                af=af,
-                crf=self.ctx["mov_crf"],
-                part_path=part_path,
-            )
-
-        file_list_path = os.path.join(assets_dir, f"{movie_name}.txt")
-        with open(file_list_path, "w", encoding="utf-8") as f:
-            for part_path in part_paths:
-                f.write(f"file '{part_path}'\n")
-
-        bat += """"%FFMPEG%" -y -loglevel error ^
--f concat ^
--safe 0 ^
--i "{file_list_path}" ^
--c copy ^
-"{movie_path}"
-if %errorlevel% neq 0 ( pause & popd & exit /b 1)
-
-"%FFPLAY%" -loglevel error -autoexit -loop 3 "{movie_path}"
-if %errorlevel% neq 0 ( pause & popd & exit /b 1)
-
-popd
-""".format(
-            file_list_path=file_list_path, movie_path=movie_path
-        )
-
-        bat_path = os.path.join(assets_dir, f"{movie_name}.bat")
-        with open(bat_path, "w", encoding="utf-8") as f:
-            f.write(bat)
-        return bat_path
-
-    def _prepare_unix(self, audio_image_sets, movie_path, assets_dir):
-        movie_name = os.path.basename(movie_path).split(".")[0]
-        ffmpeg = Path.ffmpeg if os.path.exists(Path.ffmpeg) else self.platform.resolve_tool("", "ffmpeg")
-        ffplay = Path.ffplay if os.path.exists(Path.ffplay) else self.platform.resolve_tool("", "ffplay")
-        quote = shlex.quote
-        lines = ["#!/bin/sh", "set -eu", ""]
-        subtitle_template = "1\n00:00:00,000 --> 90:00:00,000\n{serif}\n"
-        part_paths = []
-        for i, audio_image_set in enumerate(audio_image_sets):
-            audio_path = audio_image_set["audio_path"]
-            image_path = audio_image_set["image_path"]
-            audio_name, _ext = os.path.splitext(os.path.basename(audio_path))
-            serif = audio_name
-            m = self._SERIF_REGEX.match(audio_name)
-            if m is not None:
-                serif = m.group(1)
-            subtitle_path = os.path.join(assets_dir, f"{audio_name}.srt")
-            with open(subtitle_path, "w", encoding="utf-8-sig") as f:
-                f.write(subtitle_template.format(serif=serif))
-
-            part_path = os.path.join(assets_dir, f"{audio_name}.mp4")
-            part_paths.append(part_path)
             vf = []
             if self.ctx["mov_resize"] > 0:
                 vf.append(f"scale='if(gt(a,1),{self.ctx['mov_resize']},-2)':'if(gt(a,1),-2,{self.ctx['mov_resize']})'")
@@ -266,11 +156,10 @@ popd
             if self.ctx["mov_tempo_adjust"]:
                 af.append(f"atempo={self.ctx['speech_speed']}")
 
-            lines.append(f"printf '%s\\n' {quote(f'{i}: {serif}')}")
-            cmd = [
-                quote(ffmpeg), "-y", "-loglevel", "error",
-                "-i", quote(audio_path),
-                "-loop", "1", "-i", quote(image_path),
+            command = [
+                ffmpeg, "-y", "-loglevel", "error",
+                "-i", audio_path,
+                "-loop", "1", "-i", image_path,
                 "-vcodec", "libx264",
                 "-pix_fmt", "yuv420p",
                 "-acodec", "aac",
@@ -280,22 +169,34 @@ popd
                 "-shortest",
             ]
             if vf:
-                cmd.extend(["-vf", quote(", ".join(vf))])
+                command.extend(["-vf", ", ".join(vf)])
             if af:
-                cmd.extend(["-af", quote(", ".join(af))])
-            cmd.extend(["-crf", str(self.ctx["mov_crf"]), quote(part_path)])
-            lines.append(" ".join(cmd))
-            lines.append("")
+                command.extend(["-af", ", ".join(af)])
+            command.extend(["-crf", str(self.ctx["mov_crf"]), part_path])
+            commands.append((f"{i}: {serif}", command))
 
         file_list_path = os.path.join(assets_dir, f"{movie_name}.txt")
         with open(file_list_path, "w", encoding="utf-8") as f:
             for part_path in part_paths:
                 f.write(self._concat_file_line(part_path))
 
-        lines.append(f"{quote(ffmpeg)} -y -loglevel error -f concat -safe 0 -i {quote(file_list_path)} -c copy {quote(movie_path)}")
-        lines.append(f"{quote(ffplay)} -loglevel error -autoexit -loop 3 {quote(movie_path)}")
-        script_path = os.path.join(assets_dir, f"{movie_name}.sh")
+        commands.append(("concat", [ffmpeg, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", file_list_path, "-c", "copy", movie_path]))
+        commands.append(("preview", [ffplay, "-loglevel", "error", "-autoexit", "-loop", "3", movie_path]))
+        script_path = os.path.join(assets_dir, f"{movie_name}.py")
+        script = [
+            "# /// script",
+            '# requires-python = ">=3.10"',
+            "# ///",
+            "",
+            "import subprocess",
+            "",
+            f"COMMANDS = {commands!r}",
+            "",
+            "for label, command in COMMANDS:",
+            "    print(label)",
+            "    subprocess.run(command, check=True)",
+            "",
+        ]
         with open(script_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
-        os.chmod(script_path, 0o755)
+            f.write("\n".join(script))
         return script_path

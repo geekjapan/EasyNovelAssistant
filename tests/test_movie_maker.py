@@ -1,5 +1,5 @@
+import ast
 import os
-import shlex
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -23,7 +23,17 @@ class DummyContext(dict):
         )
 
 
-def test_prepare_writes_shell_script_on_linux(tmp_path, monkeypatch):
+def read_generated_commands(script_path):
+    tree = ast.parse(Path(script_path).read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "COMMANDS":
+                    return ast.literal_eval(node.value)
+    raise AssertionError("COMMANDS not found")
+
+
+def test_prepare_writes_uv_python_script_on_linux(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "movie").mkdir(exist_ok=True)
     audio = tmp_path / "001-hello.wav"
@@ -34,15 +44,14 @@ def test_prepare_writes_shell_script_on_linux(tmp_path, monkeypatch):
 
     script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
 
-    assert script_path.endswith(".sh")
-    assert Path(script_path).stat().st_mode & 0o111
+    assert script_path.endswith(".py")
     text = Path(script_path).read_text(encoding="utf-8")
-    assert "#!/bin/sh" in text
+    assert "# /// script" in text
     assert "ffmpeg" in text
     assert "start" not in text
 
 
-def test_prepare_writes_bat_on_windows(tmp_path, monkeypatch):
+def test_prepare_writes_uv_python_script_on_windows(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     audio = tmp_path / "001-hello.wav"
     image = tmp_path / "image.png"
@@ -52,13 +61,13 @@ def test_prepare_writes_bat_on_windows(tmp_path, monkeypatch):
 
     script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
 
-    assert script_path.endswith(".bat")
+    assert script_path.endswith(".py")
     text = Path(script_path).read_text(encoding="utf-8")
-    assert "@echo off" in text
-    assert "%FFMPEG%" in text
+    assert "# /// script" in text
+    assert "subprocess.run" in text
 
 
-def test_prepare_windows_quotes_ffmpeg_variables_with_space_paths(tmp_path, monkeypatch):
+def test_prepare_python_script_uses_argument_lists_for_space_paths(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     audio = tmp_path / "001-hello.wav"
     image = tmp_path / "image.png"
@@ -66,20 +75,21 @@ def test_prepare_windows_quotes_ffmpeg_variables_with_space_paths(tmp_path, monk
     image.write_bytes(b"")
     ffmpeg = tmp_path / "tools with spaces" / "ffmpeg.exe"
     ffplay = tmp_path / "tools with spaces" / "ffplay.exe"
+    ffmpeg.parent.mkdir()
+    ffmpeg.write_text("", encoding="utf-8")
+    ffplay.write_text("", encoding="utf-8")
     monkeypatch.setattr(movie_maker.Path, "ffmpeg", str(ffmpeg))
     monkeypatch.setattr(movie_maker.Path, "ffplay", str(ffplay))
     maker = MovieMaker(DummyContext(), platform_support=PlatformSupport(PlatformInfo("win32", "AMD64")))
 
     script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
 
-    text = Path(script_path).read_text(encoding="utf-8")
-    assert f'set "FFMPEG={ffmpeg}"' in text
-    assert f'set "FFPLAY={ffplay}"' in text
-    assert '"%FFMPEG%" -y -loglevel error ^' in text
-    assert '"%FFPLAY%" -loglevel error -autoexit -loop 3' in text
+    commands = read_generated_commands(script_path)
+    assert commands[0][1][0] == str(ffmpeg)
+    assert commands[-1][1][0] == str(ffplay)
 
 
-def test_prepare_quotes_unix_script_paths_and_concat_file(tmp_path, monkeypatch):
+def test_prepare_python_script_preserves_paths_and_concat_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     dangerous_dir = tmp_path / "space 日本 'quote $(touch pwned)"
     dangerous_dir.mkdir()
@@ -95,14 +105,11 @@ def test_prepare_quotes_unix_script_paths_and_concat_file(tmp_path, monkeypatch)
 
     script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(movie_path))
 
-    script_text = Path(script_path).read_text(encoding="utf-8")
-    assert shlex.quote(str(ffmpeg)) in script_text
-    assert shlex.quote(str(ffplay)) in script_text
-    assert shlex.quote(str(audio)) in script_text
-    assert shlex.quote(str(image)) in script_text
-    assert shlex.quote(str(movie_path)) in script_text
-    assert f'"{audio}"' not in script_text
-    assert f'"{image}"' not in script_text
+    commands = read_generated_commands(script_path)
+    assert commands[0][1][0] == str(ffmpeg)
+    assert str(audio) in commands[0][1]
+    assert str(image) in commands[0][1]
+    assert commands[-1][1][-1] == str(movie_path)
 
     audio_name = audio.stem
     part_path = movie_path.parent / movie_path.stem / f"{audio_name}.mp4"
@@ -111,7 +118,7 @@ def test_prepare_quotes_unix_script_paths_and_concat_file(tmp_path, monkeypatch)
     assert concat_text == f"file '{escaped_part_path}'\n"
 
 
-def test_prepare_unix_escapes_subtitle_path_for_ffmpeg_filtergraph(tmp_path, monkeypatch):
+def test_prepare_escapes_subtitle_path_for_ffmpeg_filtergraph(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     audio = tmp_path / "001-Bob's line.wav"
     image = tmp_path / "image.png"
@@ -121,14 +128,12 @@ def test_prepare_unix_escapes_subtitle_path_for_ffmpeg_filtergraph(tmp_path, mon
 
     script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
 
-    script_text = Path(script_path).read_text(encoding="utf-8")
-    ffmpeg_line = next(line for line in script_text.splitlines() if " -vf " in line)
-    ffmpeg_args = shlex.split(ffmpeg_line)
+    ffmpeg_args = read_generated_commands(script_path)[0][1]
     vf_arg = ffmpeg_args[ffmpeg_args.index("-vf") + 1]
     assert "subtitles='001-Bob\\'s line.srt'" in vf_arg
 
 
-def test_prepare_unix_filter_chains_are_single_shell_arguments(tmp_path, monkeypatch):
+def test_prepare_filter_chains_are_single_subprocess_arguments(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     audio = tmp_path / "001-Bob's line.wav"
     image = tmp_path / "image.png"
@@ -138,9 +143,7 @@ def test_prepare_unix_filter_chains_are_single_shell_arguments(tmp_path, monkeyp
 
     script_path = maker._prepare([{"audio_path": str(audio), "image_path": str(image)}], str(tmp_path / "out.mp4"))
 
-    script_text = Path(script_path).read_text(encoding="utf-8")
-    ffmpeg_line = next(line for line in script_text.splitlines() if " -vf " in line)
-    ffmpeg_args = shlex.split(ffmpeg_line)
+    ffmpeg_args = read_generated_commands(script_path)[0][1]
     vf_arg = ffmpeg_args[ffmpeg_args.index("-vf") + 1]
     af_arg = ffmpeg_args[ffmpeg_args.index("-af") + 1]
     assert ", " in vf_arg
@@ -150,8 +153,9 @@ def test_prepare_unix_filter_chains_are_single_shell_arguments(tmp_path, monkeyp
 
 
 def test_make_runs_generated_script_with_script_directory(tmp_path):
-    script_path = tmp_path / "movie assets" / "out.sh"
+    script_path = tmp_path / "movie assets" / "out.py"
     platform = Mock()
+    platform.resolve_uv.return_value = "uv"
     maker = MovieMaker(DummyContext(), platform_support=platform)
     audio_image_sets = [{"audio_path": "audio.wav", "image_path": "image.png"}]
     maker._select_audio_image_sets = Mock(return_value=audio_image_sets)
@@ -161,4 +165,4 @@ def test_make_runs_generated_script_with_script_directory(tmp_path):
     result = maker.make()
 
     assert result is True
-    platform.run_script_file.assert_called_once_with(str(script_path), cwd=os.path.dirname(str(script_path)))
+    platform.launch_command.assert_called_once_with(["uv", "run", str(script_path)], cwd=os.path.dirname(str(script_path)))

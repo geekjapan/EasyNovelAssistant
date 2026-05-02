@@ -42,27 +42,41 @@ def test_run_kobold_cpp_uses_platform_launcher(monkeypatch):
     )
 
 
-def test_windows_run_style_bert_vits2_uses_platform_script_launcher(monkeypatch):
+def test_windows_run_style_bert_vits2_uses_uv_launcher(monkeypatch):
     platform = Mock()
     platform.is_windows.return_value = True
+    platform.resolve_uv.return_value = "uv"
+    platform.style_bert_uv_dependencies.return_value = [
+        "--with",
+        "GPUtil",
+        "--with",
+        "torch",
+        "--extra-index-url",
+        "https://download.pytorch.org/whl/cu118",
+    ]
     menu = make_tool_menu(platform)
     subprocess_run = Mock()
     monkeypatch.setattr(subprocess, "run", subprocess_run)
     monkeypatch.setattr(tool_menu.Path, "style_bert_vits2", "/style-bert")
 
-    menu._run_style_bert_vits2("/style-bert/app.bat", "app.py")
+    menu._run_style_bert_vits2("app.py")
 
-    platform.run_script_file.assert_called_once_with("/style-bert/app.bat", cwd="/style-bert")
+    command = platform.launch_command.call_args.args[0]
+    assert command[:4] == ["uv", "run", "--python", sys.executable]
+    assert command[-1:] == ["app.py"]
+    assert "https://download.pytorch.org/whl/cu118" in command
     subprocess_run.assert_not_called()
 
 
 def test_unix_run_style_bert_vits2_uses_resolved_python_and_split_args(monkeypatch):
     platform = Mock()
     platform.is_windows.return_value = False
+    platform.resolve_uv.return_value = "uv"
+    platform.style_bert_uv_dependencies.return_value = ["--with", "torch"]
     menu = make_tool_menu(platform)
     monkeypatch.setattr(tool_menu.Path, "style_bert_vits2", "/style-bert")
 
-    menu._run_style_bert_vits2("/style-bert/editor.bat", "server_editor.py --inbrowser")
+    menu._run_style_bert_vits2("server_editor.py --inbrowser")
 
     command = platform.launch_command.call_args.args[0]
     assert command[:4] == ["uv", "run", "--python", sys.executable]

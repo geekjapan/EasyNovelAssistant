@@ -19,52 +19,49 @@ def test_macos_intel_has_clear_error():
         support.kobold_cpp_binary_name()
 
 
-def test_venv_tool_path_uses_platform_directory(tmp_path):
-    win = PlatformSupport(PlatformInfo("win32", "AMD64"))
-    unix = PlatformSupport(PlatformInfo("linux", "x86_64"))
-
-    assert win.venv_tool_path(tmp_path, "python").as_posix().endswith("Scripts/python.exe")
-    assert unix.venv_tool_path(tmp_path, "python").as_posix().endswith("bin/python")
-
-
 def test_kobold_cpp_path_joins_binary_name(tmp_path):
     support = PlatformSupport(PlatformInfo("linux", "x86_64"))
 
     assert support.kobold_cpp_path(tmp_path) == tmp_path / "koboldcpp-linux-x64"
 
 
-def test_resolve_tool_prefers_venv_tool_when_present(tmp_path, monkeypatch):
-    support = PlatformSupport(PlatformInfo("linux", "x86_64"))
-    tool_path = tmp_path / "bin" / "python"
-    tool_path.parent.mkdir()
-    tool_path.touch()
-    which = Mock(return_value="/usr/bin/python")
-    monkeypatch.setattr(platform_support.shutil, "which", which)
-
-    assert support.resolve_tool(tmp_path, "python") == str(tool_path)
-    which.assert_not_called()
-
-
 def test_resolve_tool_falls_back_to_path_lookup(tmp_path, monkeypatch):
     support = PlatformSupport(PlatformInfo("linux", "x86_64"))
     monkeypatch.setattr(platform_support.shutil, "which", Mock(return_value="/usr/bin/python"))
 
-    assert support.resolve_tool(tmp_path, "python") == "/usr/bin/python"
+    assert support.resolve_tool("python") == "/usr/bin/python"
 
 
-def test_resolve_tool_returns_venv_path_when_tool_missing(tmp_path, monkeypatch):
+def test_resolve_tool_returns_tool_name_when_missing(tmp_path, monkeypatch):
     support = PlatformSupport(PlatformInfo("linux", "x86_64"))
     monkeypatch.setattr(platform_support.shutil, "which", Mock(return_value=None))
 
-    assert support.resolve_tool(tmp_path, "python") == str(tmp_path / "bin" / "python")
+    assert support.resolve_tool("python") == "python"
 
 
-def test_resolve_tool_falls_back_to_venv_path(tmp_path):
+def test_resolve_uv_prefers_uv_cmd_environment(monkeypatch):
+    support = PlatformSupport(PlatformInfo("win32", "AMD64"))
+    monkeypatch.setenv("UV_CMD", "C:/Tools/uv.exe")
+
+    assert support.resolve_uv() == "C:/Tools/uv.exe"
+
+
+def test_style_bert_uv_dependencies_use_cuda_index_off_macos():
     support = PlatformSupport(PlatformInfo("linux", "x86_64"))
+    args = support.style_bert_uv_dependencies()
 
-    resolved = support.resolve_tool(tmp_path, "definitely-not-installed-easy-novel-tool")
+    assert "--extra-index-url" in args
+    assert "https://download.pytorch.org/whl/cu118" in args
 
-    assert resolved.endswith("bin/definitely-not-installed-easy-novel-tool")
+
+def test_style_bert_uv_dependencies_skip_cuda_index_on_macos_apple_silicon():
+    support = PlatformSupport(PlatformInfo("darwin", "arm64"))
+    args = support.style_bert_uv_dependencies()
+
+    assert "--with" in args
+    assert "torch" in args
+    assert "--extra-index-url" not in args
+    assert "https://download.pytorch.org/whl/cu118" not in args
 
 
 def test_windows_launch_command_uses_argument_list_without_shell(monkeypatch, tmp_path):

@@ -25,10 +25,6 @@ class Path:
 
     style_bert_vits2 = os.path.join(cwd, "Style-Bert-VITS2")
     style_bert_vits2_config = os.path.join(style_bert_vits2, "config.yml")
-    style_bert_vits2_setup = os.path.join(setup, "Setup-Style-Bert-VITS2.bat")
-    style_bert_vits2_run = os.path.join(setup, "Run-Style-Bert-VITS2.bat")
-    style_bert_vits2_app = os.path.join(style_bert_vits2, "App.bat")
-    style_bert_vits2_editor = os.path.join(style_bert_vits2, "Editor.bat")
 
     sample = os.path.join(cwd, "sample")
 

@@ -18,7 +18,7 @@ if %errorlevel% neq 0 (
 	%PS_CMD% Expand-Archive -Path %~dp0res\tkinter-PythonSoftwareFoundationLicense.zip -DestinationPath %PYTHON_DIR% -Force
 )
 
-echo %UV_CMD% run --python %PYTHON_CMD% %~dp0setup_easy_novel_assistant.py
-"%UV_CMD%" run --python %PYTHON_CMD% %~dp0setup_easy_novel_assistant.py
+echo %UV_CMD% run --python %PYTHON_CMD% %~dp0ena.py setup
+"%UV_CMD%" run --python %PYTHON_CMD% %~dp0ena.py setup
 if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
 popd
