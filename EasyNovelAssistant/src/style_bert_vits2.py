@@ -12,6 +12,7 @@ from job_queue import JobQueue
 from path import Path
 from platform_support import PlatformSupport
 from scipy.io import wavfile
+from style_bert_runtime import build_style_bert_uv_command
 
 
 class StyleBertVits2:
@@ -28,18 +29,14 @@ class StyleBertVits2:
         self.play_queue = JobQueue()
 
     def build_uv_command(self, script_name, args=None):
-        command = [
+        return build_style_bert_uv_command(
             self.platform.resolve_uv(),
-            "run",
-            "--python",
             sys.executable,
-            "--with-requirements",
-            "requirements.txt",
-        ]
-        command.extend(self.platform.style_bert_uv_dependencies())
-        command.append(script_name)
-        command.extend(args or [])
-        return command
+            self.style_bert_vits2_dir,
+            script_name,
+            args=args,
+            is_macos=self.platform.is_macos(),
+        )
 
     def install(self):
         msg = f"{Path.style_bert_vits2} に Style-Bert-VITS2 をインストールして、"

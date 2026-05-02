@@ -141,18 +141,28 @@ def test_setup_python_script_runs_speech_setup_during_initial_setup(monkeypatch)
     assert calls == ["deps", "kobold", "model", "speech"]
 
 
-def test_setup_python_script_builds_style_bert_uv_command(monkeypatch):
+def test_setup_python_script_builds_style_bert_uv_command(tmp_path, monkeypatch):
     script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
     spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_style", script)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     monkeypatch.setenv("UV_CMD", "uv")
     monkeypatch.setattr(module.platform, "system", lambda: "Windows")
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    style_dir.mkdir()
+    (style_dir / "requirements.txt").write_text(
+        "torch<2.4\nfaster-whisper==0.10.1\nnumpy\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_DIR", style_dir)
 
     command = module.style_bert_uv_command("server_fastapi.py")
 
-    assert command[:4] == ["uv", "run", "--python", module.sys.executable]
+    assert command[:5] == ["uv", "run", "--no-project", "--python", module.sys.executable]
     assert "--with-requirements" in command
+    requirements = style_dir / ".easy_novel_assistant" / "requirements-runtime.txt"
+    assert str(requirements) in command
+    assert "faster-whisper" not in requirements.read_text(encoding="utf-8")
     assert command[-1:] == ["server_fastapi.py"]
     assert "--cpu" not in command
     assert "--extra-index-url" in command

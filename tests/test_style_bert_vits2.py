@@ -7,6 +7,16 @@ from platform_support import PlatformInfo, PlatformSupport
 from style_bert_vits2 import StyleBertVits2
 
 
+def make_style_dir(tmp_path):
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    style_dir.mkdir()
+    (style_dir / "requirements.txt").write_text(
+        "torch<2.4\nfaster-whisper==0.10.1\nnumpy\n",
+        encoding="utf-8",
+    )
+    return style_dir
+
+
 class DummyContext(dict):
     def __init__(self):
         super().__init__(
@@ -22,7 +32,7 @@ class DummyContext(dict):
 
 def test_launch_server_uses_cuda_uv_command_without_cpu_arg(tmp_path, monkeypatch):
     monkeypatch.setenv("UV_CMD", "uv")
-    style_dir = tmp_path / "Style-Bert-VITS2"
+    style_dir = make_style_dir(tmp_path)
     support = PlatformSupport(PlatformInfo("linux", "x86_64"))
     support.launch_command = Mock()
     style = StyleBertVits2(DummyContext(), platform_support=support, style_bert_vits2_dir=style_dir)
@@ -30,10 +40,13 @@ def test_launch_server_uses_cuda_uv_command_without_cpu_arg(tmp_path, monkeypatc
     style.launch_server()
 
     command = support.launch_command.call_args.args[0]
-    assert command[:4] == ["uv", "run", "--python", sys.executable]
+    assert command[:5] == ["uv", "run", "--no-project", "--python", sys.executable]
     assert command[-1:] == ["server_fastapi.py"]
     assert "--cpu" not in command
     assert "--with-requirements" in command
+    requirements = style_dir / ".easy_novel_assistant" / "requirements-runtime.txt"
+    assert str(requirements) in command
+    assert "faster-whisper" not in requirements.read_text(encoding="utf-8")
     assert "https://download.pytorch.org/whl/cu118" in command
     support.launch_command.assert_called_once()
     assert support.launch_command.call_args.kwargs == {"cwd": str(style_dir)}
@@ -41,7 +54,7 @@ def test_launch_server_uses_cuda_uv_command_without_cpu_arg(tmp_path, monkeypatc
 
 def test_launch_server_on_windows_uses_uv_cmd_not_batch(tmp_path, monkeypatch):
     monkeypatch.setenv("UV_CMD", "C:/Tools/uv.exe")
-    style_dir = tmp_path / "Style-Bert-VITS2"
+    style_dir = make_style_dir(tmp_path)
     support = PlatformSupport(PlatformInfo("win32", "AMD64"))
     support.launch_command = Mock()
     style = StyleBertVits2(DummyContext(), platform_support=support, style_bert_vits2_dir=style_dir)
@@ -56,7 +69,7 @@ def test_launch_server_on_windows_uses_uv_cmd_not_batch(tmp_path, monkeypatch):
 
 def test_launch_server_on_macos_apple_silicon_skips_cuda_index(tmp_path, monkeypatch):
     monkeypatch.setenv("UV_CMD", "uv")
-    style_dir = tmp_path / "Style-Bert-VITS2"
+    style_dir = make_style_dir(tmp_path)
     support = PlatformSupport(PlatformInfo("darwin", "arm64"))
     support.launch_command = Mock()
     style = StyleBertVits2(DummyContext(), platform_support=support, style_bert_vits2_dir=style_dir)

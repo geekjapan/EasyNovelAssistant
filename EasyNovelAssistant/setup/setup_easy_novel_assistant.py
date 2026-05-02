@@ -21,6 +21,16 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+SRC_DIR = ROOT / "EasyNovelAssistant" / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from style_bert_runtime import (  # noqa: E402
+    PYTORCH_CUDA_INDEX_URL,
+    build_style_bert_uv_command,
+    style_bert_uv_dependencies as build_style_bert_uv_dependencies,
+)
+
 KOBOLD_CPP_DIR = ROOT / "KoboldCpp"
 STYLE_BERT_VITS2_DIR = ROOT / "Style-Bert-VITS2"
 STYLE_BERT_VITS2_CONFIG = STYLE_BERT_VITS2_DIR / "config.yml"
@@ -29,7 +39,6 @@ SETUP_LIB_DIR = ROOT / "EasyNovelAssistant" / "setup" / "lib"
 FFMPEG_DIR = SETUP_LIB_DIR / "ffmpeg-master-latest-win64-gpl"
 FFMPEG_ZIP = SETUP_LIB_DIR / "ffmpeg.zip"
 FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-PYTORCH_CUDA_INDEX_URL = "https://download.pytorch.org/whl/cu118"
 VECTEUS_FILE_NAME = "Vecteus-v1-IQ4_XS.gguf"
 VECTEUS_URLS = [
     "https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf",
@@ -48,19 +57,7 @@ def resolve_uv_command():
 
 def style_bert_uv_dependencies(system=None):
     system = system or platform.system()
-    args = [
-        "--with",
-        "GPUtil",
-        "--with",
-        "torch",
-        "--with",
-        "torchvision",
-        "--with",
-        "torchaudio",
-    ]
-    if system != "Darwin":
-        args.extend(["--extra-index-url", PYTORCH_CUDA_INDEX_URL, "--index-strategy", "unsafe-best-match"])
-    return args
+    return build_style_bert_uv_dependencies(is_macos=system == "Darwin")
 
 
 def select_kobold_binary(system=None, machine=None):
@@ -141,18 +138,14 @@ def ensure_default_model():
 
 
 def style_bert_uv_command(script_name, *args):
-    command = [
+    return build_style_bert_uv_command(
         resolve_uv_command(),
-        "run",
-        "--python",
         sys.executable,
-        "--with-requirements",
-        "requirements.txt",
-    ]
-    command.extend(style_bert_uv_dependencies())
-    command.append(script_name)
-    command.extend(args)
-    return command
+        STYLE_BERT_VITS2_DIR,
+        script_name,
+        args=args,
+        is_macos=platform.system() == "Darwin",
+    )
 
 
 def ensure_style_bert_repo():

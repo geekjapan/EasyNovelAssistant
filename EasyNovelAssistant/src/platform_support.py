@@ -6,9 +6,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from style_bert_runtime import PYTORCH_CUDA_INDEX_URL, style_bert_uv_dependencies as build_style_bert_uv_dependencies
+
 
 WINDOWS_UNSAFE_SCRIPT_PATH_CHARACTERS = set("&|<>^")
-PYTORCH_CUDA_INDEX_URL = "https://download.pytorch.org/whl/cu118"
 
 
 def _is_windows_batch_file(path):
@@ -71,19 +72,7 @@ class PlatformSupport:
         return self.resolve_tool("uv")
 
     def style_bert_uv_dependencies(self):
-        args = [
-            "--with",
-            "GPUtil",
-            "--with",
-            "torch",
-            "--with",
-            "torchvision",
-            "--with",
-            "torchaudio",
-        ]
-        if not self.is_macos():
-            args.extend(["--extra-index-url", PYTORCH_CUDA_INDEX_URL, "--index-strategy", "unsafe-best-match"])
-        return args
+        return build_style_bert_uv_dependencies(is_macos=self.is_macos())
 
     def launch_command(self, args, cwd=None):
         args = [str(arg) for arg in args]

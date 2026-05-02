@@ -6,6 +6,7 @@ import webbrowser
 
 from path import Path
 from platform_support import PlatformSupport
+from style_bert_runtime import build_style_bert_uv_command
 
 
 class ToolMenu:
@@ -97,14 +98,13 @@ class ToolMenu:
         self.platform.launch_command([executable], cwd=Path.kobold_cpp)
 
     def _run_style_bert_vits2(self, py):
-        command = [
+        script_name, *args = shlex.split(py)
+        command = build_style_bert_uv_command(
             self.platform.resolve_uv(),
-            "run",
-            "--python",
             sys.executable,
-            "--with-requirements",
-            "requirements.txt",
-        ]
-        command.extend(self.platform.style_bert_uv_dependencies())
-        command.extend(shlex.split(py))
+            Path.style_bert_vits2,
+            script_name,
+            args=args,
+            is_macos=self.platform.is_macos(),
+        )
         self.platform.launch_command(command, cwd=Path.style_bert_vits2)
