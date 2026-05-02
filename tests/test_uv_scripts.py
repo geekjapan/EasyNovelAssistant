@@ -170,6 +170,113 @@ def test_setup_python_script_builds_style_bert_uv_command(tmp_path, monkeypatch)
     assert "https://download.pytorch.org/whl/cu118" in command
 
 
+def test_setup_python_script_reuses_existing_style_bert_repo_without_pull(tmp_path, monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_repo", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    (style_dir / ".git").mkdir(parents=True)
+    calls = []
+    monkeypatch.delenv("ENA_UPDATE_STYLE_BERT", raising=False)
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_DIR", style_dir)
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    module.ensure_style_bert_repo()
+
+    assert calls == []
+
+
+def test_setup_python_script_updates_existing_style_bert_repo_only_when_requested(tmp_path, monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_repo_update", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    (style_dir / ".git").mkdir(parents=True)
+    calls = []
+    monkeypatch.setenv("ENA_UPDATE_STYLE_BERT", "1")
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_DIR", style_dir)
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    module.ensure_style_bert_repo()
+
+    assert calls[0][0][0] == ["git", "-C", str(style_dir), "pull", "--ff-only"]
+    assert calls[0][1] == {"check": True}
+
+
+def test_setup_python_script_rejects_non_git_style_bert_dir(tmp_path, monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_repo_bad", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    style_dir.mkdir()
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_DIR", style_dir)
+
+    with pytest.raises(RuntimeError, match="not a git repository"):
+        module.ensure_style_bert_repo()
+
+
+def test_setup_python_script_style_bert_initialize_current_checks_state_and_markers(tmp_path, monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_init_current", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    (style_dir / "bert" / "ja").mkdir(parents=True)
+    (style_dir / "bert" / "bert_models.json").write_text(
+        '{"ja": {"files": ["model.bin"]}}',
+        encoding="utf-8",
+    )
+    (style_dir / "marker.bin").write_text("", encoding="utf-8")
+    (style_dir / "bert" / "ja" / "model.bin").write_text("", encoding="utf-8")
+    state = tmp_path / "setup-state.json"
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_DIR", style_dir)
+    monkeypatch.setattr(module, "STYLE_BERT_SETUP_STATE", state)
+    monkeypatch.setattr(module, "STYLE_BERT_INITIALIZE_MARKERS", ["marker.bin"])
+    monkeypatch.setattr(module, "style_bert_repo_head", lambda: "abc123")
+    module.write_json_file(state, {"style_bert_head": "abc123"})
+
+    assert module.style_bert_initialize_is_current() is True
+    (style_dir / "marker.bin").unlink()
+    assert module.style_bert_initialize_is_current() is False
+
+
+def test_setup_python_script_skips_style_bert_initialize_when_current(tmp_path, monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_init_skip", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    config = tmp_path / "config.yml"
+    config_source = tmp_path / "source_config.yml"
+    config_source.write_text("server:\n", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(module, "STYLE_BERT_MODELS", [])
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_CONFIG", config)
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_CONFIG_SOURCE", config_source)
+    monkeypatch.setattr(module, "ensure_windows_ffmpeg_bundle", lambda: None)
+    monkeypatch.setattr(module, "style_bert_initialize_is_current", lambda: True)
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    module.ensure_style_bert_assets()
+
+    assert calls == []
+    assert config.exists()
+
+
+def test_setup_python_script_default_style_bert_models_are_currently_available():
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_models", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    repos = {repo_id for repo_id, _model_dir, _model_name, _model_safetensors in module.STYLE_BERT_MODELS}
+
+    assert repos == {"RinneAi/Rinne_Style-Bert-VITS2"}
+    assert all(repo_id != "kaunista/kaunista-style-bert-vits2-models" for repo_id in repos)
+
+
 def test_setup_python_script_skips_cuda_index_on_macos():
     script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
     spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_style_macos", script)
