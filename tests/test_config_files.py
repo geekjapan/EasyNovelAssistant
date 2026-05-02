@@ -22,6 +22,10 @@ def test_default_json_files_load_with_utf8_sig():
     assert all(isinstance(item, dict) for item in loaded)
     assert "llm_name" in loaded[0]
     assert loaded[0]["speech_enabled"] is True
+    assert loaded[0]["log_generated_text"] is True
+    assert loaded[0]["log_operations"] is True
+    assert loaded[0]["log_info"] is True
+    assert loaded[0]["log_errors"] is True
     assert len(loaded[1]) >= 29
     assert "CommandR" in loaded[2]
 

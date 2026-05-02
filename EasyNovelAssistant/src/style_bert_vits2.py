@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 
+import app_logger
 import numpy as np
 import requests
 from job_queue import JobQueue
@@ -55,10 +56,15 @@ class StyleBertVits2:
 
     def install(self):
         if self.platform.is_windows():
+            app_logger.log_operation("speech", "install_style_bert_vits2", script=Path.style_bert_vits2_setup)
             self._run_bat(Path.style_bert_vits2_setup, "Style-Bert-VITS2 インストール")
         else:
             msg = f"{Path.style_bert_vits2} に Style-Bert-VITS2 をインストールして、"
-            print(msg + "EasyNovelAssistant/setup/res/config.yml をインストール先にコピーしてください。")
+            app_logger.log_info(
+                "speech",
+                msg + "EasyNovelAssistant/setup/res/config.yml をインストール先にコピーしてください。",
+                event="manual_style_bert_vits2_install_required",
+            )
 
     def launch_server(self):
         self._run_bat(Path.style_bert_vits2_run, "Style-Bert-VITS2 読み上げサーバー")
@@ -66,10 +72,13 @@ class StyleBertVits2:
     def _run_bat(self, command, title):
         if self.platform.is_windows():
             args = [] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]
+            app_logger.log_operation("speech", "launch_server", script=command, args=args)
             self.platform.run_script_file(command, args=args)
         else:
             args = [] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]
-            self.platform.launch_command(self.build_uv_command("server_fastapi.py", args), cwd=self.style_bert_vits2_dir)
+            launch_command = self.build_uv_command("server_fastapi.py", args)
+            app_logger.log_operation("speech", "launch_server", command=launch_command, cwd=self.style_bert_vits2_dir)
+            self.platform.launch_command(launch_command, cwd=self.style_bert_vits2_dir)
 
     def get_models(self):
         try:
@@ -115,7 +124,15 @@ class StyleBertVits2:
 
         if not force:
             if (self.gen_queue.len() > max_speech_queue) or (self.play_queue.len() > max_speech_queue):
-                print(f"[Info] 混み合っているので読み上げをキャンセルしました。: {text}")
+                app_logger.log_info(
+                    "speech",
+                    "speech queue is full; skipped",
+                    event="speech_queue_skipped",
+                    text=text,
+                    gen_queue_len=self.gen_queue.len(),
+                    play_queue_len=self.play_queue.len(),
+                    max_speech_queue=max_speech_queue,
+                )
                 return False
         self.gen_queue.push(self._generate, text=text)
         return True
@@ -169,11 +186,25 @@ class StyleBertVits2:
                 wavfile.write(wav_path, sample_rate, data_with_silence.astype(np.int16))
 
                 self.play_queue.push(self._play, wav_path=wav_path)
-                print(f"読み上げ {time.perf_counter() - start_time:.2f}秒: {text}")
+                app_logger.log_info(
+                    "speech",
+                    "speech generated",
+                    event="speech_generated",
+                    text=text,
+                    wav_path=wav_path,
+                    elapsed_sec=round(time.perf_counter() - start_time, 3),
+                )
                 return True
-            print(f"[失敗] StyleBertVits2.generate(): {response.text}")
+            app_logger.log_error(
+                "speech",
+                "speech request failed",
+                event="speech_generate_failed",
+                status_code=response.status_code,
+                response_text=response.text,
+                params=params,
+            )
         except Exception as e:
-            print(f"[例外] StyleBertVits2.generate(): {e}")
+            app_logger.log_exception("speech", "speech generation raised exception", e, params=params)
         return None
 
     def _play(self, wav_path):
