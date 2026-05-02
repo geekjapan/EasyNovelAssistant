@@ -42,6 +42,9 @@ class PlatformSupport:
     def is_macos(self):
         return self.info.system == "darwin"
 
+    def is_macos_apple_silicon(self):
+        return self.is_macos() and self.info.machine.lower() in ("arm64", "aarch64")
+
     def is_linux(self):
         return self.info.system.startswith("linux")
 

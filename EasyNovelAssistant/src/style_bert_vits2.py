@@ -36,6 +36,7 @@ class StyleBertVits2:
             script_name,
             args=args,
             is_macos=self.platform.is_macos(),
+            is_macos_arm64=self.platform.is_macos_apple_silicon(),
         )
 
     def install(self):

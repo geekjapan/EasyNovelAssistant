@@ -46,7 +46,7 @@ def test_launch_server_uses_cuda_uv_command_without_cpu_arg(tmp_path, monkeypatc
     assert "--with-requirements" in command
     requirements = style_dir / ".easy_novel_assistant" / "requirements-runtime.txt"
     assert str(requirements) in command
-    assert "faster-whisper" not in requirements.read_text(encoding="utf-8")
+    assert "faster-whisper==0.10.1" in requirements.read_text(encoding="utf-8")
     assert "https://download.pytorch.org/whl/cu118" in command
     support.launch_command.assert_called_once()
     assert support.launch_command.call_args.kwargs == {"cwd": str(style_dir)}
@@ -80,6 +80,8 @@ def test_launch_server_on_macos_apple_silicon_skips_cuda_index(tmp_path, monkeyp
     assert "torch" in command
     assert "--extra-index-url" not in command
     assert "https://download.pytorch.org/whl/cu118" not in command
+    requirements = style_dir / ".easy_novel_assistant" / "requirements-runtime.txt"
+    assert "faster-whisper" not in requirements.read_text(encoding="utf-8")
 
 
 def test_play_uses_ffplay_subprocess(monkeypatch):

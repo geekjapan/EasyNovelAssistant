@@ -148,6 +148,7 @@ def test_setup_python_script_builds_style_bert_uv_command(tmp_path, monkeypatch)
     spec.loader.exec_module(module)
     monkeypatch.setenv("UV_CMD", "uv")
     monkeypatch.setattr(module.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(module.platform, "machine", lambda: "AMD64")
     style_dir = tmp_path / "Style-Bert-VITS2"
     style_dir.mkdir()
     (style_dir / "requirements.txt").write_text(
@@ -162,7 +163,7 @@ def test_setup_python_script_builds_style_bert_uv_command(tmp_path, monkeypatch)
     assert "--with-requirements" in command
     requirements = style_dir / ".easy_novel_assistant" / "requirements-runtime.txt"
     assert str(requirements) in command
-    assert "faster-whisper" not in requirements.read_text(encoding="utf-8")
+    assert "faster-whisper==0.10.1" in requirements.read_text(encoding="utf-8")
     assert command[-1:] == ["server_fastapi.py"]
     assert "--cpu" not in command
     assert "--extra-index-url" in command

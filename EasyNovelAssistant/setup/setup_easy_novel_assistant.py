@@ -138,6 +138,7 @@ def ensure_default_model():
 
 
 def style_bert_uv_command(script_name, *args):
+    is_macos_arm64 = platform.system() == "Darwin" and platform.machine().lower() in ("arm64", "aarch64")
     return build_style_bert_uv_command(
         resolve_uv_command(),
         sys.executable,
@@ -145,6 +146,7 @@ def style_bert_uv_command(script_name, *args):
         script_name,
         args=args,
         is_macos=platform.system() == "Darwin",
+        is_macos_arm64=is_macos_arm64,
     )
 
 

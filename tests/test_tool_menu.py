@@ -56,6 +56,7 @@ def test_windows_run_style_bert_vits2_uses_uv_launcher(tmp_path, monkeypatch):
     platform = Mock()
     platform.is_windows.return_value = True
     platform.is_macos.return_value = False
+    platform.is_macos_apple_silicon.return_value = False
     platform.resolve_uv.return_value = "uv"
     menu = make_tool_menu(platform)
     subprocess_run = Mock()
@@ -75,6 +76,7 @@ def test_unix_run_style_bert_vits2_uses_resolved_python_and_split_args(tmp_path,
     platform = Mock()
     platform.is_windows.return_value = False
     platform.is_macos.return_value = False
+    platform.is_macos_apple_silicon.return_value = False
     platform.resolve_uv.return_value = "uv"
     menu = make_tool_menu(platform)
     style_dir = make_style_dir(tmp_path)
@@ -88,6 +90,6 @@ def test_unix_run_style_bert_vits2_uses_resolved_python_and_split_args(tmp_path,
     assert "--with-requirements" in command
     requirements = tmp_path / "style-bert" / ".easy_novel_assistant" / "requirements-runtime.txt"
     assert str(requirements) in command
-    assert "faster-whisper" not in requirements.read_text(encoding="utf-8")
+    assert "faster-whisper==0.10.1" in requirements.read_text(encoding="utf-8")
     platform.launch_command.assert_called_once()
     assert platform.launch_command.call_args.kwargs == {"cwd": style_dir}
