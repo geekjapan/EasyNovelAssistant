@@ -9,6 +9,7 @@ from path import Path
 
 _config = {}
 _lock = threading.Lock()
+_RESERVED_KEYS = {"timestamp", "component", "event", "level", "message", "payload_conflicts"}
 
 
 def configure(config):
@@ -48,11 +49,23 @@ def _base_record(component, event, level=None, message=None):
     return record
 
 
+def _add_details(record, details):
+    conflicts = {}
+    for key, value in details.items():
+        if key in _RESERVED_KEYS:
+            conflicts[key] = value
+        else:
+            record[key] = value
+    if conflicts:
+        record["payload_conflicts"] = conflicts
+    return record
+
+
 def log_generated(component, payload):
     if not _enabled("log_generated_text"):
         return
     record = _base_record(component, "generated_text")
-    record.update(payload)
+    _add_details(record, payload)
     _write_jsonl(Path.generated_log, record)
 
 
@@ -60,7 +73,7 @@ def log_operation(component, event, message=None, **details):
     if not _enabled("log_operations"):
         return
     record = _base_record(component, event, level="OPERATION", message=message)
-    record.update(details)
+    _add_details(record, details)
     _write_jsonl(Path.operation_log, record)
 
 
@@ -68,7 +81,7 @@ def log_info(component, message, event="info", **details):
     if not _enabled("log_info"):
         return
     record = _base_record(component, event, level="INFO", message=message)
-    record.update(details)
+    _add_details(record, details)
     _write_jsonl(Path.info_log, record)
 
 
@@ -76,7 +89,7 @@ def log_error(component, message, event="error", **details):
     if not _enabled("log_errors"):
         return
     record = _base_record(component, event, level="ERROR", message=message)
-    record.update(details)
+    _add_details(record, details)
     _write_jsonl(Path.error_log, record)
 
 
@@ -85,7 +98,7 @@ def log_exception(component, message, error, event="exception", **details):
         {
             "error_type": type(error).__name__,
             "error": str(error),
-            "traceback": traceback.format_exc(),
+            "traceback": "".join(traceback.format_exception(type(error), error, error.__traceback__)),
         }
     )
     log_error(component, message, event=event, **details)

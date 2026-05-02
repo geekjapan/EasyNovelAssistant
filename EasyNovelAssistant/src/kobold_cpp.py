@@ -162,9 +162,18 @@ popd
                     url=url,
                     output_path=final_path,
                 )
-            except Exception:
+            except Exception as error:
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
+                app_logger.log_exception(
+                    "kobold_cpp",
+                    "model download raised exception",
+                    error,
+                    event="download_model_exception",
+                    llm_name=llm_name,
+                    url=url,
+                    temp_path=temp_path,
+                )
                 raise
         app_logger.log_operation("kobold_cpp", "download_model_done", llm_name=llm_name)
         return None

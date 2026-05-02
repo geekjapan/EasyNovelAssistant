@@ -72,3 +72,31 @@ def test_app_logger_writes_jsonl_without_bom(tmp_path, monkeypatch):
     data = info_log.read_bytes()
     assert b"\xef\xbb\xbf" not in data
     assert len(read_jsonl(info_log)) == 2
+
+
+def test_app_logger_preserves_reserved_schema_fields(tmp_path, monkeypatch):
+    generated_log = tmp_path / "generated.jsonl"
+    monkeypatch.setattr(app_logger.Path, "generated_log", str(generated_log))
+
+    app_logger.log_generated("kobold", {"event": "payload_event", "component": "payload_component", "result": "ok"})
+
+    record = read_jsonl(generated_log)[0]
+    assert record["event"] == "generated_text"
+    assert record["component"] == "kobold"
+    assert record["result"] == "ok"
+    assert record["payload_conflicts"] == {"event": "payload_event", "component": "payload_component"}
+
+
+def test_app_logger_formats_traceback_from_passed_exception(tmp_path, monkeypatch):
+    error_log = tmp_path / "errors.log"
+    monkeypatch.setattr(app_logger.Path, "error_log", str(error_log))
+
+    try:
+        raise RuntimeError("captured")
+    except RuntimeError as captured:
+        saved = captured
+
+    app_logger.log_exception("logger", "outside except", saved)
+
+    record = read_jsonl(error_log)[0]
+    assert "RuntimeError: captured" in record["traceback"]

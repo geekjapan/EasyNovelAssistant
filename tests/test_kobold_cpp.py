@@ -166,6 +166,32 @@ def test_download_model_removes_temp_file_after_curl_failure(tmp_path, monkeypat
     assert not (kobold_dir / "modern.gguf").exists()
 
 
+def test_download_model_logs_unexpected_exceptions(tmp_path, monkeypatch):
+    kobold_dir = tmp_path / "KoboldCpp"
+    error_log = tmp_path / "errors.log"
+    ctx = DummyContext(tmp_path)
+    monkeypatch.setattr(kobold_cpp.webbrowser, "open", Mock())
+    monkeypatch.setattr(kobold_cpp.os, "replace", Mock(side_effect=OSError("replace failed")))
+    monkeypatch.setattr(kobold_cpp.app_logger.Path, "error_log", str(error_log))
+    monkeypatch.setattr(kobold_cpp.subprocess, "run", Mock(return_value=Mock(returncode=0)))
+    kobold = KoboldCpp(
+        ctx,
+        platform_support=PlatformSupport(PlatformInfo("linux", "x86_64")),
+        kobold_cpp_dir=kobold_dir,
+    )
+
+    try:
+        kobold.download_model("Modern")
+    except OSError:
+        pass
+
+    logged = json.loads(error_log.read_text(encoding="utf-8-sig").splitlines()[0])
+    assert logged["event"] == "download_model_exception"
+    assert logged["llm_name"] == "Modern"
+    assert logged["url"] == "https://huggingface.co/example/modern/resolve/main/modern.gguf"
+    assert "temp_path" in logged
+
+
 def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):
     kobold_dir = tmp_path / "KoboldCpp"
     ctx = DummyContext(tmp_path)

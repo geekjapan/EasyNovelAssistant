@@ -123,14 +123,16 @@ class StyleBertVits2:
         max_speech_queue = self.ctx["max_speech_queue"]
 
         if not force:
-            if (self.gen_queue.len() > max_speech_queue) or (self.play_queue.len() > max_speech_queue):
+            gen_queue_len = self.gen_queue.len()
+            play_queue_len = self.play_queue.len()
+            if (gen_queue_len > max_speech_queue) or (play_queue_len > max_speech_queue):
                 app_logger.log_info(
                     "speech",
                     "speech queue is full; skipped",
                     event="speech_queue_skipped",
                     text=text,
-                    gen_queue_len=self.gen_queue.len(),
-                    play_queue_len=self.play_queue.len(),
+                    gen_queue_len=gen_queue_len,
+                    play_queue_len=play_queue_len,
                     max_speech_queue=max_speech_queue,
                 )
                 return False

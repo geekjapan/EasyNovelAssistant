@@ -141,3 +141,7 @@ def test_generate_logs_queue_skip_to_info_log(tmp_path, monkeypatch):
     logged = json.loads(info_log.read_text(encoding="utf-8-sig").splitlines()[0])
     assert logged["component"] == "speech"
     assert logged["event"] == "speech_queue_skipped"
+    assert logged["gen_queue_len"] == 4
+    assert logged["play_queue_len"] == 0
+    style.gen_queue.len.assert_called_once_with()
+    style.play_queue.len.assert_called_once_with()
