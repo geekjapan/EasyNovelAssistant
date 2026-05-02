@@ -243,6 +243,43 @@ def test_setup_python_script_style_bert_initialize_current_checks_state_and_mark
     assert module.style_bert_initialize_is_current() is False
 
 
+def test_setup_python_script_style_bert_initialize_not_current_without_bert_manifest(tmp_path, monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_init_no_bert_manifest", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    style_dir.mkdir()
+    (style_dir / "marker.bin").write_text("", encoding="utf-8")
+    state = tmp_path / "setup-state.json"
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_DIR", style_dir)
+    monkeypatch.setattr(module, "STYLE_BERT_SETUP_STATE", state)
+    monkeypatch.setattr(module, "STYLE_BERT_INITIALIZE_MARKERS", ["marker.bin"])
+    monkeypatch.setattr(module, "style_bert_repo_head", lambda: "abc123")
+    module.write_json_file(state, {"style_bert_head": "abc123"})
+
+    assert module.style_bert_initialize_is_current() is False
+
+
+def test_setup_python_script_style_bert_initialize_not_current_with_corrupt_bert_manifest(tmp_path, monkeypatch):
+    script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
+    spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_init_bad_bert_manifest", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    style_dir = tmp_path / "Style-Bert-VITS2"
+    (style_dir / "bert").mkdir(parents=True)
+    (style_dir / "bert" / "bert_models.json").write_text("{broken", encoding="utf-8")
+    (style_dir / "marker.bin").write_text("", encoding="utf-8")
+    state = tmp_path / "setup-state.json"
+    monkeypatch.setattr(module, "STYLE_BERT_VITS2_DIR", style_dir)
+    monkeypatch.setattr(module, "STYLE_BERT_SETUP_STATE", state)
+    monkeypatch.setattr(module, "STYLE_BERT_INITIALIZE_MARKERS", ["marker.bin"])
+    monkeypatch.setattr(module, "style_bert_repo_head", lambda: "abc123")
+    module.write_json_file(state, {"style_bert_head": "abc123"})
+
+    assert module.style_bert_initialize_is_current() is False
+
+
 def test_setup_python_script_read_json_file_returns_default_for_corrupt_json(tmp_path):
     script = ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py"
     spec = importlib.util.spec_from_file_location("setup_easy_novel_assistant_json_read", script)

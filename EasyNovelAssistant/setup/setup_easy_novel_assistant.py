@@ -227,7 +227,10 @@ def style_bert_repo_head():
 
 def style_bert_marker_paths():
     markers = list(STYLE_BERT_INITIALIZE_MARKERS)
-    bert_models = read_json_file(STYLE_BERT_VITS2_DIR / "bert" / "bert_models.json", default={})
+    missing_manifest = object()
+    bert_models = read_json_file(STYLE_BERT_VITS2_DIR / "bert" / "bert_models.json", default=missing_manifest)
+    if bert_models is missing_manifest or not isinstance(bert_models, dict):
+        return None
     for model_name, model in bert_models.items():
         for file_name in model.get("files", []):
             markers.append(str(Path("bert") / model_name / file_name))
@@ -238,7 +241,10 @@ def style_bert_initialize_is_current():
     state = read_json_file(STYLE_BERT_SETUP_STATE, default={}) or {}
     if state.get("style_bert_head") != style_bert_repo_head():
         return False
-    return all(path.exists() for path in style_bert_marker_paths())
+    marker_paths = style_bert_marker_paths()
+    if marker_paths is None:
+        return False
+    return all(path.exists() for path in marker_paths)
 
 
 def record_style_bert_initialize_complete():
