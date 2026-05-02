@@ -75,13 +75,11 @@ class ToolMenu:
             self.menu.add_separator()
             self.menu.add_command(
                 label="Style-Bert-VITS2 音声生成とモデル学習",
-                command=lambda: self._run_style_bert_vits2(Path.style_bert_vits2_app, "app.py"),
+                command=lambda: self._run_style_bert_vits2("app.py"),
             )
             self.menu.add_command(
                 label="Style-Bert-VITS2 音声エディタ",
-                command=lambda: self._run_style_bert_vits2(
-                    Path.style_bert_vits2_editor, "server_editor.py --inbrowser"
-                ),
+                command=lambda: self._run_style_bert_vits2("server_editor.py --inbrowser"),
             )
 
             self.menu.add_separator()
@@ -98,28 +96,25 @@ class ToolMenu:
         executable = self.platform.kobold_cpp_path(Path.kobold_cpp)
         self.platform.launch_command([executable], cwd=Path.kobold_cpp)
 
-    def _run_style_bert_vits2(self, bat, py):
-        if self.platform.is_windows():
-            self.platform.run_script_file(bat, cwd=Path.style_bert_vits2)
-        else:
-            command = [
-                "uv",
-                "run",
-                "--python",
-                sys.executable,
-                "--with-requirements",
-                "requirements.txt",
-                "--with",
-                "GPUtil",
-                "--with",
-                "torch",
-                "--with",
-                "torchvision",
-                "--with",
-                "torchaudio",
-                "--index",
-                "https://download.pytorch.org/whl/cu118",
-                "--index-strategy",
-                "unsafe-best-match",
-            ] + shlex.split(py)
-            self.platform.launch_command(command, cwd=Path.style_bert_vits2)
+    def _run_style_bert_vits2(self, py):
+        command = [
+            "uv",
+            "run",
+            "--python",
+            sys.executable,
+            "--with-requirements",
+            "requirements.txt",
+            "--with",
+            "GPUtil",
+            "--with",
+            "torch",
+            "--with",
+            "torchvision",
+            "--with",
+            "torchaudio",
+            "--index",
+            "https://download.pytorch.org/whl/cu118",
+            "--index-strategy",
+            "unsafe-best-match",
+        ] + shlex.split(py)
+        self.platform.launch_command(command, cwd=Path.style_bert_vits2)

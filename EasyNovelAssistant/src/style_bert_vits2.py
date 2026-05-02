@@ -27,10 +27,6 @@ class StyleBertVits2:
         self.gen_queue = JobQueue()
         self.play_queue = JobQueue()
 
-    def get_python_executable(self):
-        venv_dir = os.path.join(self.style_bert_vits2_dir, "venv")
-        return str(self.platform.venv_tool_path(venv_dir, "python"))
-
     def build_uv_command(self, script_name, args=None):
         return [
             "uv",
@@ -55,30 +51,20 @@ class StyleBertVits2:
         ] + list(args or [])
 
     def install(self):
-        if self.platform.is_windows():
-            app_logger.log_operation("speech", "install_style_bert_vits2", script=Path.style_bert_vits2_setup)
-            self._run_bat(Path.style_bert_vits2_setup, "Style-Bert-VITS2 インストール")
-        else:
-            msg = f"{Path.style_bert_vits2} に Style-Bert-VITS2 をインストールして、"
-            app_logger.log_info(
-                "speech",
-                msg + "EasyNovelAssistant/setup/res/config.yml をインストール先にコピーしてください。",
-                event="manual_style_bert_vits2_install_required",
-            )
+        msg = f"{Path.style_bert_vits2} に Style-Bert-VITS2 をインストールして、"
+        app_logger.log_info(
+            "speech",
+            msg + "uv run EasyNovelAssistant/setup/ena.py setup を実行してください。",
+            event="style_bert_vits2_setup_required",
+        )
 
     def launch_server(self):
-        self._run_bat(Path.style_bert_vits2_run, "Style-Bert-VITS2 読み上げサーバー")
+        self._run_server()
 
-    def _run_bat(self, command, title):
-        if self.platform.is_windows():
-            args = [] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]
-            app_logger.log_operation("speech", "launch_server", script=command, args=args)
-            self.platform.run_script_file(command, args=args)
-        else:
-            args = [] if self.ctx["style_bert_vits2_gpu"] else ["--cpu"]
-            launch_command = self.build_uv_command("server_fastapi.py", args)
-            app_logger.log_operation("speech", "launch_server", command=launch_command, cwd=self.style_bert_vits2_dir)
-            self.platform.launch_command(launch_command, cwd=self.style_bert_vits2_dir)
+    def _run_server(self):
+        launch_command = self.build_uv_command("server_fastapi.py")
+        app_logger.log_operation("speech", "launch_server", command=launch_command, cwd=self.style_bert_vits2_dir)
+        self.platform.launch_command(launch_command, cwd=self.style_bert_vits2_dir)
 
     def get_models(self):
         try:

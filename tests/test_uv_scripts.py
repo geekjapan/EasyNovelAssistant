@@ -6,17 +6,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 APP_SCRIPTS = [
-    ROOT / "Activate-venv.bat",
     ROOT / "EasyNovelAssistant" / "setup" / "ActivateVirtualEnvironment.bat",
     ROOT / "EasyNovelAssistant" / "setup" / "Setup-EasyNovelAssistant.bat",
-    ROOT / "EasyNovelAssistant" / "setup" / "Setup-EasyNovelAssistant.sh",
     ROOT / "EasyNovelAssistant" / "setup" / "Install-EasyNovelAssistant.bat",
-    ROOT / "EasyNovelAssistant" / "setup" / "Install-EasyNovelAssistant.sh",
     ROOT / "Run-EasyNovelAssistant.bat",
-    ROOT / "Run-EasyNovelAssistant.sh",
-    ROOT / "EasyNovelAssistant" / "setup" / "Setup-Style-Bert-VITS2.bat",
-    ROOT / "EasyNovelAssistant" / "setup" / "Run-Style-Bert-VITS2.bat",
-    ROOT / "EasyNovelAssistant" / "setup" / "res" / "Server_cpu.bat",
 ]
 
 
@@ -33,39 +26,36 @@ def test_app_scripts_do_not_create_or_activate_virtualenvs():
             assert marker not in text, f"{script.relative_to(ROOT)} still contains {marker}"
 
 
-def test_style_bert_scripts_run_python_through_uv():
-    setup_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "Setup-Style-Bert-VITS2.bat")
-    run_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "Run-Style-Bert-VITS2.bat")
-    server_cpu_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "res" / "Server_cpu.bat")
-
-    assert '"%UV_CMD%" run --python "%PYTHON_CMD%" %STYLE_BERT_UV_DEPS% initialize.py' in setup_text
-    assert '"%UV_CMD%" run --python "%PYTHON_CMD%" %STYLE_BERT_UV_DEPS% server_fastapi.py %*' in run_text
-    assert '"%UV_CMD%" run --python "%PYTHON_CMD%" %STYLE_BERT_UV_DEPS% server_fastapi.py --cpu' in server_cpu_text
-    assert "pip install" not in setup_text
-    assert "python server_fastapi.py" not in run_text
-
-
 def test_path_points_ffplay_at_downloaded_ffmpeg_bundle():
     from path import Path as AppPath
 
     assert AppPath.ffplay.endswith("EasyNovelAssistant/setup/lib/ffmpeg-master-latest-win64-gpl/bin/ffplay.exe")
 
 
-def test_unix_scripts_run_app_through_uv_requirements():
-    setup_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "Setup-EasyNovelAssistant.sh")
-    run_text = read_text(ROOT / "Run-EasyNovelAssistant.sh")
+def test_shell_wrappers_are_removed_from_primary_flow():
+    removed = [
+        ROOT / "EasyNovelAssistant" / "setup" / "Setup-EasyNovelAssistant.sh",
+        ROOT / "EasyNovelAssistant" / "setup" / "Install-EasyNovelAssistant.sh",
+        ROOT / "Run-EasyNovelAssistant.sh",
+        ROOT / "EasyNovelAssistant" / "setup" / "res" / "Server_cpu.bat",
+        ROOT / "EasyNovelAssistant" / "setup" / "Setup-Style-Bert-VITS2.bat",
+        ROOT / "EasyNovelAssistant" / "setup" / "Run-Style-Bert-VITS2.bat",
+        ROOT / "Activate-venv.bat",
+        ROOT / "Update-KoboldCpp.bat",
+        ROOT / "Update-KoboldCpp_CUDA12.bat",
+        ROOT / "KoboldCpp" / "Launch-Ocuteus-v1-Q8_0-C16K-L0.bat",
+    ]
 
-    assert "command -v uv" in setup_text
-    assert "uv run ./EasyNovelAssistant/setup/setup_easy_novel_assistant.py" in setup_text
-    assert "uv run ./EasyNovelAssistant/setup/run_easy_novel_assistant.py" in run_text
+    assert all(not path.exists() for path in removed)
 
 
-def test_readme_uses_uv_for_unix_setup_and_launch():
+def test_readme_uses_uv_wrapper_for_setup_and_launch():
     text = read_text(ROOT / "README.md")
 
-    assert "uv run EasyNovelAssistant/setup/setup_easy_novel_assistant.py" in text
-    assert "uv run EasyNovelAssistant/setup/run_easy_novel_assistant.py" in text
+    assert "uv run EasyNovelAssistant/setup/ena.py setup" in text
+    assert "uv run EasyNovelAssistant/setup/ena.py run" in text
     assert "sh Run-EasyNovelAssistant.sh" not in text
+    assert "Run-Style-Bert-VITS2.bat" not in text
 
 
 def test_setup_python_script_has_pep723_metadata():
@@ -94,8 +84,18 @@ def test_run_python_script_has_pep723_metadata():
     assert '#     "watchdog==6.0.0",' in text
 
 
+def test_ena_python_script_has_pep723_metadata():
+    script = ROOT / "EasyNovelAssistant" / "setup" / "ena.py"
+    text = read_text(script)
+
+    assert text.startswith("# /// script\n")
+    assert "# requires-python = \">=3.10\"" in text
+    assert "# dependencies = [" in text
+
+
 def test_setup_python_script_dependencies_match_requirements():
     scripts = [
+        ROOT / "EasyNovelAssistant" / "setup" / "ena.py",
         ROOT / "EasyNovelAssistant" / "setup" / "setup_easy_novel_assistant.py",
         ROOT / "EasyNovelAssistant" / "setup" / "run_easy_novel_assistant.py",
     ]
@@ -143,11 +143,13 @@ def test_setup_python_script_builds_style_bert_uv_command():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    command = module.style_bert_uv_command("server_fastapi.py", "--cpu")
+    command = module.style_bert_uv_command("server_fastapi.py")
 
     assert command[:4] == ["uv", "run", "--python", module.sys.executable]
     assert "--with-requirements" in command
-    assert command[-2:] == ["server_fastapi.py", "--cpu"]
+    assert command[-1:] == ["server_fastapi.py"]
+    assert "--cpu" not in command
+    assert "https://download.pytorch.org/whl/cu118" in command
 
 
 def test_run_python_script_builds_sample_urls_without_empty_path_segments():
@@ -167,5 +169,5 @@ def test_windows_scripts_run_app_through_uv_requirements():
     setup_text = read_text(ROOT / "EasyNovelAssistant" / "setup" / "Setup-EasyNovelAssistant.bat")
     run_text = read_text(ROOT / "Run-EasyNovelAssistant.bat")
 
-    assert "%UV_CMD% run --python %PYTHON_CMD% %~dp0setup_easy_novel_assistant.py" in setup_text
-    assert '"%UV_CMD%" run --python %PYTHON_CMD% EasyNovelAssistant\\setup\\run_easy_novel_assistant.py' in run_text
+    assert "%UV_CMD% run --python %PYTHON_CMD% %~dp0ena.py setup" in setup_text
+    assert '"%UV_CMD%" run --python %PYTHON_CMD% EasyNovelAssistant\\setup\\ena.py run' in run_text

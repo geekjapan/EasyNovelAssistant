@@ -16,6 +16,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+import zipfile
 from pathlib import Path
 
 
@@ -23,8 +24,11 @@ ROOT = Path(__file__).resolve().parents[2]
 KOBOLD_CPP_DIR = ROOT / "KoboldCpp"
 STYLE_BERT_VITS2_DIR = ROOT / "Style-Bert-VITS2"
 STYLE_BERT_VITS2_CONFIG = STYLE_BERT_VITS2_DIR / "config.yml"
-STYLE_BERT_VITS2_SETUP = ROOT / "EasyNovelAssistant" / "setup" / "Setup-Style-Bert-VITS2.bat"
 STYLE_BERT_VITS2_CONFIG_SOURCE = ROOT / "EasyNovelAssistant" / "setup" / "res" / "config.yml"
+SETUP_LIB_DIR = ROOT / "EasyNovelAssistant" / "setup" / "lib"
+FFMPEG_DIR = SETUP_LIB_DIR / "ffmpeg-master-latest-win64-gpl"
+FFMPEG_ZIP = SETUP_LIB_DIR / "ffmpeg.zip"
+FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 VECTEUS_FILE_NAME = "Vecteus-v1-IQ4_XS.gguf"
 VECTEUS_URLS = [
     "https://huggingface.co/mmnga/Vecteus-v1-gguf/resolve/main/Vecteus-v1-IQ4_XS.gguf",
@@ -149,6 +153,17 @@ def ensure_style_bert_repo():
         )
 
 
+def ensure_windows_ffmpeg_bundle():
+    if platform.system() != "Windows" or FFMPEG_DIR.exists():
+        return
+    SETUP_LIB_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading {FFMPEG_URL}")
+    download_file(FFMPEG_URL, FFMPEG_ZIP)
+    with zipfile.ZipFile(FFMPEG_ZIP) as archive:
+        archive.extractall(SETUP_LIB_DIR)
+    FFMPEG_ZIP.unlink(missing_ok=True)
+
+
 def ensure_style_bert_model(repo_id, model_dir, model_name, model_safetensors):
     target_dir = STYLE_BERT_VITS2_DIR / "model_assets" / model_name
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -166,6 +181,7 @@ def ensure_style_bert_model(repo_id, model_dir, model_name, model_safetensors):
 
 
 def ensure_style_bert_assets():
+    ensure_windows_ffmpeg_bundle()
     subprocess.run(style_bert_uv_command("initialize.py"), cwd=str(STYLE_BERT_VITS2_DIR), check=True)
     for model in STYLE_BERT_MODELS:
         ensure_style_bert_model(*model)
@@ -176,10 +192,6 @@ def ensure_style_bert_assets():
 def ensure_speech_engine():
     if STYLE_BERT_VITS2_CONFIG.exists():
         print(f"Style-Bert-VITS2 ready: {STYLE_BERT_VITS2_DIR}")
-        return
-    if platform.system() == "Windows":
-        print("Installing Style-Bert-VITS2 speech engine")
-        subprocess.run([str(STYLE_BERT_VITS2_SETUP)], cwd=str(ROOT), check=True)
         return
     print("Installing Style-Bert-VITS2 speech engine")
     ensure_style_bert_repo()

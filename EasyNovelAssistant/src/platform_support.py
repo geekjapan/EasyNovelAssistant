@@ -56,21 +56,11 @@ class PlatformSupport:
     def kobold_cpp_path(self, kobold_cpp_dir):
         return Path(kobold_cpp_dir) / self.kobold_cpp_binary_name()
 
-    def venv_tool_path(self, venv_dir, tool_name):
-        executable = tool_name
-        if self.is_windows() and not executable.endswith(".exe"):
-            executable += ".exe"
-        subdir = "Scripts" if self.is_windows() else "bin"
-        return Path(venv_dir) / subdir / executable
-
-    def resolve_tool(self, venv_dir, tool_name):
-        venv_path = self.venv_tool_path(venv_dir, tool_name)
-        if venv_path.exists():
-            return str(venv_path)
+    def resolve_tool(self, tool_name):
         found = shutil.which(tool_name)
         if found is not None:
             return found
-        return str(venv_path)
+        return tool_name
 
     def launch_command(self, args, cwd=None):
         args = [str(arg) for arg in args]

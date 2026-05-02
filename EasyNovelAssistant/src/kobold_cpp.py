@@ -28,39 +28,6 @@ def split_user_args(value, is_windows=False):
 
 
 class KoboldCpp:
-    BAT_TEMPLATE = r"""@echo off
-chcp 65001 > NUL
-pushd %~dp0
-set "CURL_CMD=C:\Windows\System32\curl.exe"
-
-@REM 7B: 33, 35B: 41, 70B: 65
-set GPU_LAYERS=0
-
-@REM 2048, 4096, 8192, 16384, 32768, 65536, 131072
-set CONTEXT_SIZE={context_size}
-
-{curl_cmd}
-koboldcpp.exe --gpulayers %GPU_LAYERS% {option} --contextsize %CONTEXT_SIZE% {launch_args} "{file_name}"
-if %errorlevel% neq 0 ( pause & popd & exit /b 1 )
-popd
-"""
-
-    CURL_TEMPLATE = """if not exist "{file_name}" (
-    start "" "{info_url}"
-    if exist "{temp_file_name}" del /f /q "{temp_file_name}"
-    "%CURL_CMD%" -k -L -f -o "{temp_file_name}" "{url}"
-    if errorlevel 1 (
-        if exist "{temp_file_name}" del /f /q "{temp_file_name}"
-        pause & popd & exit /b 1
-    )
-    move /y "{temp_file_name}" "{file_name}"
-    if errorlevel 1 (
-        if exist "{temp_file_name}" del /f /q "{temp_file_name}"
-        pause & popd & exit /b 1
-    )
-)
-"""
-
     def __init__(self, ctx, platform_support=None, kobold_cpp_dir=None):
         self.ctx = ctx
         self.platform = platform_support or PlatformSupport()
@@ -74,30 +41,6 @@ popd
         self.model_name = None
         normalize_llm_map(ctx.llm)
         os.makedirs(self.kobold_cpp_dir, exist_ok=True)
-
-        for llm_name, llm in ctx.llm.items():
-            context_size = min(llm["context_size"], ctx["llm_context_size"])
-            safe_name = Path.get_path_name(llm["name"])
-            bat_file = os.path.join(self.kobold_cpp_dir, f"Run-{safe_name}-C{context_size // 1024}K-L0.bat")
-
-            curl_cmd = ""
-            for url in llm["urls"]:
-                file_name = url.split("/")[-1]
-                curl_cmd += self.CURL_TEMPLATE.format(
-                    url=url,
-                    file_name=file_name,
-                    temp_file_name=f"{file_name}.tmp",
-                    info_url=llm["info_url"],
-                )
-            bat_text = self.BAT_TEMPLATE.format(
-                curl_cmd=curl_cmd,
-                option=ctx["koboldcpp_arg"],
-                launch_args=subprocess.list2cmdline(llm.get("launch_args", [])),
-                context_size=context_size,
-                file_name=llm["file_name"],
-            )
-            with open(bat_file, "w", encoding="utf-8") as f:
-                f.write(bat_text)
 
     def get_model(self):
         try:

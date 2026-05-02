@@ -192,7 +192,7 @@ def test_download_model_logs_unexpected_exceptions(tmp_path, monkeypatch):
     assert "temp_path" in logged
 
 
-def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):
+def test_init_does_not_generate_legacy_kobold_batch_wrappers(tmp_path):
     kobold_dir = tmp_path / "KoboldCpp"
     ctx = DummyContext(tmp_path)
     ctx.llm["Modern"]["launch_args"] = ["--jinja", "--template", "chat template.jinja"]
@@ -203,13 +203,10 @@ def test_init_writes_bat_with_launch_args_and_quoted_model_name(tmp_path):
         kobold_cpp_dir=kobold_dir,
     )
 
-    bat_text = (kobold_dir / "Run-Modern-C8K-L0.bat").read_text(encoding="utf-8")
-    assert "--jinja" in bat_text
-    assert '--template "chat template.jinja"' in bat_text
-    assert '"modern.gguf"' in bat_text
+    assert not list(kobold_dir.glob("Run-*.bat"))
 
 
-def test_init_sanitizes_generated_bat_file_name(tmp_path):
+def test_init_does_not_generate_batch_wrapper_for_custom_model_names(tmp_path):
     kobold_dir = tmp_path / "KoboldCpp"
     ctx = DummyContext(tmp_path)
     ctx.llm = {
@@ -226,10 +223,10 @@ def test_init_sanitizes_generated_bat_file_name(tmp_path):
         kobold_cpp_dir=kobold_dir,
     )
 
-    assert (kobold_dir / "Run-Bad_Model-C8K-L0.bat").exists()
+    assert not list(kobold_dir.glob("Run-*.bat"))
 
 
-def test_init_writes_bat_with_failure_safe_model_download(tmp_path):
+def test_model_download_is_handled_by_python_not_batch_templates(tmp_path):
     kobold_dir = tmp_path / "KoboldCpp"
     ctx = DummyContext(tmp_path)
     ctx.llm["Modern"]["info_url"] = "https://example.test/model info"
@@ -244,16 +241,7 @@ def test_init_writes_bat_with_failure_safe_model_download(tmp_path):
         kobold_cpp_dir=kobold_dir,
     )
 
-    bat_text = (kobold_dir / "Run-Modern-C8K-L0.bat").read_text(encoding="utf-8")
-    assert 'set "CURL_CMD=C:\\Windows\\System32\\curl.exe"' in bat_text
-    assert " -O" not in bat_text
-    assert 'if not exist "modern.gguf" (' in bat_text
-    assert 'if not exist "modern-mmproj.gguf" (' in bat_text
-    assert 'start "" "https://example.test/model info"' in bat_text
-    assert '"%CURL_CMD%" -k -L -f -o "modern.gguf.tmp" "https://example.test/models/modern.gguf"' in bat_text
-    assert 'move /y "modern.gguf.tmp" "modern.gguf"' in bat_text
-    assert 'if exist "modern.gguf.tmp" del /f /q "modern.gguf.tmp"' in bat_text
-    assert "pause & popd & exit /b 1" in bat_text
+    assert not list(kobold_dir.glob("Run-*.bat"))
 
 
 def test_launch_server_launches_built_command_with_kobold_dir(tmp_path, monkeypatch):
