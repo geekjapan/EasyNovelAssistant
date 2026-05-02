@@ -17,6 +17,7 @@ class HfGgufReference:
     repo_id: str
     file_path: str | None = None
     revision: str = "main"
+    file_hint: str | None = None
 
     @property
     def url(self):
@@ -37,9 +38,21 @@ def parse_hf_gguf_reference(text):
     if value.startswith("http://") or value.startswith("https://"):
         return parse_hf_gguf_url(value)
 
-    if " " in value or value.count("/") != 1:
-        raise ValueError("Hugging Face のモデル名は owner/repo 形式で入力してください。")
-    return HfGgufReference(repo_id=value)
+    repo_id, file_hint = split_hf_repo_file_hint(value)
+    if " " in repo_id or repo_id.count("/") != 1:
+        raise ValueError("Hugging Face のモデル名は owner/repo または owner/repo:variant 形式で入力してください。")
+    return HfGgufReference(repo_id=repo_id, file_hint=file_hint)
+
+
+def split_hf_repo_file_hint(value):
+    if ":" not in value:
+        return value, None
+    repo_id, file_hint = value.rsplit(":", 1)
+    repo_id = repo_id.strip()
+    file_hint = file_hint.strip()
+    if not repo_id or not file_hint:
+        raise ValueError("Hugging Face の variant 指定は owner/repo:variant 形式で入力してください。")
+    return repo_id, file_hint
 
 
 def parse_hf_gguf_url(url):
@@ -84,6 +97,41 @@ def gguf_siblings_from_api_payload(payload):
         if file_path and file_path.lower().endswith(".gguf"):
             files.append(file_path)
     return sorted(files, key=str.lower)
+
+
+def resolve_gguf_file_hint(files, file_hint):
+    hint = file_hint.strip()
+    if not hint:
+        raise ValueError("GGUFファイルのvariant指定が空です。")
+
+    def normalize(value):
+        return value.lower()
+
+    def unique_match(matches):
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            choices = "\n".join(matches[:20])
+            raise ValueError(f"variant指定 '{file_hint}' に一致するGGUFファイルが複数あります。\n\n{choices}")
+        return None
+
+    hint_lower = normalize(hint)
+    hint_with_ext = hint_lower if hint_lower.endswith(".gguf") else f"{hint_lower}.gguf"
+    matchers = [
+        lambda path: normalize(path) == hint_lower,
+        lambda path: normalize(Path(path).name) == hint_lower,
+        lambda path: normalize(Path(path).name) == hint_with_ext,
+        lambda path: normalize(Path(path).stem) == hint_lower,
+        lambda path: hint_lower in normalize(Path(path).stem),
+    ]
+
+    for matcher in matchers:
+        match = unique_match([path for path in files if matcher(path)])
+        if match is not None:
+            return match
+
+    choices = "\n".join(files[:20])
+    raise ValueError(f"variant指定 '{file_hint}' に一致するGGUFファイルが見つかりませんでした。\n\n{choices}")
 
 
 def build_gguf_llm_entry(repo_id, file_path, revision="main"):

@@ -9,6 +9,7 @@ from huggingface_models import (
     fetch_hf_model_payload,
     gguf_siblings_from_api_payload,
     parse_hf_gguf_reference,
+    resolve_gguf_file_hint,
     save_custom_llm_entry,
 )
 from model_metadata import normalize_llm_entry
@@ -119,7 +120,7 @@ class ModelMenu:
     def add_huggingface_model(self):
         value = simpledialog.askstring(
             "Hugging Face GGUFモデルを追加",
-            "Hugging Face の owner/repo または .gguf ファイルURLを入力してください。",
+            "Hugging Face の owner/repo、owner/repo:variant、または .gguf ファイルURLを入力してください。",
             parent=self.form.win,
         )
         if not value:
@@ -133,7 +134,10 @@ class ModelMenu:
                 files = gguf_siblings_from_api_payload(payload)
                 if not files:
                     raise ValueError(f"{ref.repo_id} にGGUFファイルが見つかりませんでした。")
-                file_path = self._ask_gguf_file(ref.repo_id, files)
+                if ref.file_hint:
+                    file_path = resolve_gguf_file_hint(files, ref.file_hint)
+                else:
+                    file_path = self._ask_gguf_file(ref.repo_id, files)
                 if not file_path:
                     return
 

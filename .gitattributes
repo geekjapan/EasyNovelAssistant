@@ -2,4 +2,5 @@ README.md -whitespace
 EasyNovelAssistant/setup/res/default_llm.json -whitespace
 EasyNovelAssistant/setup/res/default_llm_sequence.json -whitespace
 EasyNovelAssistant/src/menu/tool_menu.py whitespace=cr-at-eol
+EasyNovelAssistant/src/menu/model_menu.py whitespace=cr-at-eol
 EasyNovelAssistant/src/style_bert_vits2.py whitespace=cr-at-eol
