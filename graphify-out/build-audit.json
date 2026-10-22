@@ -1,0 +1,27 @@
+{
+  "project": "EasyNovelAssistant",
+  "source_commit": "74ffeae16716cca321ee74fb19a2668a75d0cc53",
+  "source_tree_dirty": false,
+  "semantic_files": [
+    "EasyNovelAssistant/setup/res/config.yml",
+    "EasyNovelAssistant/setup/res/requirements.txt",
+    "LICENSE.txt",
+    "README.md",
+    "docs/superpowers/plans/2026-05-02-modernize-cross-platform-model-support.md",
+    "docs/superpowers/specs/2026-05-02-modernize-cross-platform-model-support-design.md",
+    "requirements-dev.txt"
+  ],
+  "pending_files": [],
+  "ast_status": "extracted",
+  "semantic_token_usage": "Native Codex session; per-project token usage unavailable. No separate inference API was used.",
+  "validation_issues": [],
+  "unresolved_edge_count": 0,
+  "body_reuse": [],
+  "warnings": [],
+  "unclassified_count": 9,
+  "excluded_or_conversion_failed": [],
+  "scope": "All Graphify-supported files discovered in this project; unsupported file extensions, ignored build/dependency directories and sensitive-name exclusions are not claimed as parsed.",
+  "unreadable_sources": [],
+  "media": [],
+  "office_conversions": []
+}
